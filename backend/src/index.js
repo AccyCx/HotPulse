@@ -4,12 +4,11 @@ import cors from 'cors'
 import { createServer } from 'http'
 import { initWebSocket } from './services/websocket.js'
 import { startMonitor } from './services/monitor.js'
-import { startDiscovery } from './services/discovery.js'
+import { startCleanup } from './services/cleanup.js'
 import keywordsRouter from './routes/keywords.js'
-import domainsRouter from './routes/domains.js'
-import topicsRouter from './routes/topics.js'
 import alertsRouter from './routes/alerts.js'
 import settingsRouter from './routes/settings.js'
+import searchRouter from './routes/search.js'
 
 const app = express()
 const server = createServer(app)
@@ -20,10 +19,9 @@ app.use(express.json())
 
 // Routes
 app.use('/api/keywords', keywordsRouter)
-app.use('/api/domains', domainsRouter)
-app.use('/api/topics', topicsRouter)
 app.use('/api/alerts', alertsRouter)
 app.use('/api/settings', settingsRouter)
+app.use('/api/search', searchRouter)
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -41,7 +39,7 @@ initWebSocket(server)
 
 // Start scheduled services
 startMonitor()
-startDiscovery()
+startCleanup()
 
 server.listen(PORT, () => {
   console.log(`\n🚀 HotPulse Backend running on http://localhost:${PORT}`)

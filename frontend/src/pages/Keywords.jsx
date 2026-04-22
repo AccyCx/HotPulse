@@ -105,7 +105,7 @@ export default function Keywords() {
   }
 
   async function handleDelete(id) {
-    if (!confirm('确认删除该监控词及所有预警记录？')) return
+    if (!confirm('确认删除该监控词？历史热点将保留 5 天后自动清理。')) return
     await keywordsApi.remove(id)
     setKeywords(p => p.filter(k => k.id !== id))
   }

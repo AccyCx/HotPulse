@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
 import {
-  TrendingUp, Tag, Bell, RefreshCw, ExternalLink, ArrowUpRight,
-  ChevronDown, ChevronUp, Heart, Repeat2, MessageCircle, Eye,
-  Bookmark, Clock, Zap, AlertTriangle, Radio, SlidersHorizontal,
-  RotateCcw, CheckCircle, AtSign, Flame,
+  TrendingUp, Tag, Bell, RefreshCw, ExternalLink,
+  ChevronDown, ChevronUp, Clock, Zap, AlertTriangle, SlidersHorizontal, Radio,
+  RotateCcw, Flame,
 } from 'lucide-react'
-import { alertsApi, topicsApi, keywordsApi, domainsApi } from '../lib/api'
+import { alertsApi, keywordsApi } from '../lib/api'
 
 /* ── helpers ────────────────────────────────────────── */
 
@@ -82,11 +81,11 @@ function PlatformBadge({ source }) {
 function HotCard({ item, type }) {
   const [expanded, setExpanded] = useState(false)
 
-  const score    = type === 'topic' ? item.heat_score : (item.relevance_score || 0) * 10
+  const score    = (item.relevance_score || 0) * 10
   const priority = getPriority(score)
-  const keyword  = type === 'alert' ? item.keyword : item.domain_name
-  const time     = type === 'alert' ? item.triggered_at : item.discovered_at
-  const isUnread = type === 'alert' && !item.is_read
+  const keyword  = item.keyword
+  const time     = item.triggered_at
+  const isUnread = !item.is_read
 
   return (
     <div className="hp-card p-5 animate-fade-in" style={isUnread ? { borderColor: 'rgba(59,130,246,0.25)' } : {}}>
@@ -210,67 +209,51 @@ function HotCard({ item, type }) {
 /* ── Sort tabs ──────────────────────────────────────── */
 const SORT_OPTIONS = [
   { key: 'latest',    label: '最新发现'  },
-  { key: 'published', label: '最新发布'  },
   { key: 'heat',      label: '热度综合'  },
   { key: 'relevance', label: '相关性'    },
 ]
 
 /* ── Main Dashboard ─────────────────────────────────── */
 export default function Dashboard() {
-  const [alertStats,   setAlertStats]   = useState({ total: 0, unread: 0, today: 0 })
-  const [topicStats,   setTopicStats]   = useState({ total: 0, today: 0 })
   const [feedItems,    setFeedItems]    = useState([])
   const [kwCount,      setKwCount]      = useState(0)
-  const [domainCount,  setDomainCount]  = useState(0)
+  const [alertStats,   setAlertStats]   = useState({ total: 0, unread: 0, today: 0 })
   const [loading,      setLoading]      = useState(true)
   const [sortBy,       setSortBy]       = useState('heat')
-  const [filterType,   setFilterType]   = useState('all') // 'all' | 'alert' | 'topic'
   const [refreshing,   setRefreshing]   = useState(false)
 
   async function load(showSpin = true) {
     if (showSpin) setLoading(true)
     else setRefreshing(true)
     try {
-      const [as, ts, alerts, topics, kws, domains] = await Promise.all([
-        alertsApi.getStats(), topicsApi.getStats(),
-        alertsApi.getAll({ limit: 20 }),
-        topicsApi.getAll({ limit: 20 }),
-        keywordsApi.getAll(), domainsApi.getAll(),
+      const [as, alerts, kws] = await Promise.all([
+        alertsApi.getStats(),
+        alertsApi.getAll({ limit: 40 }),
+        keywordsApi.getAll(),
       ])
-      setAlertStats(as); setTopicStats(ts)
-      setKwCount(kws.length); setDomainCount(domains.length)
-
-      const unified = [
-        ...alerts.map(a => ({ ...a, _type: 'alert' })),
-        ...topics.map(t => ({ ...t, _type: 'topic' })),
-      ]
-      setFeedItems(unified)
+      setAlertStats(as)
+      setKwCount(kws.length)
+      setFeedItems((alerts || []).map(a => ({ ...a, _type: 'alert' })))
     } catch {}
     finally { setLoading(false); setRefreshing(false) }
   }
 
   useEffect(() => { load() }, [])
 
-  /* ── Sorted + filtered feed ── */
-  const filtered = feedItems.filter(item => filterType === 'all' || item._type === filterType)
-
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = [...feedItems].sort((a, b) => {
     if (sortBy === 'latest') {
-      const at = a._type === 'alert' ? a.triggered_at : a.discovered_at
-      const bt = b._type === 'alert' ? b.triggered_at : b.discovered_at
+      const at = a.triggered_at
+      const bt = b.triggered_at
       return new Date(bt) - new Date(at)
     }
-    if (sortBy === 'published') {
-      return new Date(b.triggered_at || b.discovered_at) - new Date(a.triggered_at || a.discovered_at)
-    }
     if (sortBy === 'heat') {
-      const as = a._type === 'topic' ? a.heat_score : (a.relevance_score || 0) * 10
-      const bs = b._type === 'topic' ? b.heat_score : (b.relevance_score || 0) * 10
+      const as = (a.relevance_score || 0) * 10
+      const bs = (b.relevance_score || 0) * 10
       return bs - as
     }
     if (sortBy === 'relevance') {
-      const ar = a._type === 'alert' ? (a.relevance_score || 0) : a.heat_score / 10
-      const br = b._type === 'alert' ? (b.relevance_score || 0) : b.heat_score / 10
+      const ar = (a.relevance_score || 0)
+      const br = (b.relevance_score || 0)
       return br - ar
     }
     return 0
@@ -291,14 +274,14 @@ export default function Dashboard() {
         <StatCard
           icon={TrendingUp}
           label="总热点"
-          value={topicStats.total + alertStats.total}
-          sub={`+${topicStats.today + alertStats.today} 今日`}
+          value={alertStats.total}
+          sub={`+${alertStats.today} 今日`}
           accent="#06B6D4"
         />
         <StatCard
           icon={Bell}
           label="今日新增"
-          value={topicStats.today + alertStats.today}
+          value={alertStats.today}
           sub={`共 ${feedItems.length} 条`}
           accent="#3B82F6"
         />
@@ -316,7 +299,7 @@ export default function Dashboard() {
           icon={Tag}
           label="监控词"
           value={kwCount}
-          sub={`${domainCount} 域`}
+          sub={`未读 ${alertStats.unread}`}
           accent="#10B981"
         />
       </div>
@@ -356,15 +339,8 @@ export default function Dashboard() {
               {opt.label}
             </button>
           ))}
-          <div className="w-px h-4 mx-1 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }} />
-          {[{ k: 'all', l: '全部' }, { k: 'alert', l: '预警' }, { k: 'topic', l: '发现' }].map(f => (
-            <button key={f.k} onClick={() => setFilterType(f.k)}
-              className={`hp-tab${filterType === f.k ? ' hp-tab-active' : ''}`}>
-              {f.l}
-            </button>
-          ))}
           <button
-            onClick={() => { setSortBy('heat'); setFilterType('all') }}
+            onClick={() => { setSortBy('heat') }}
             className="hp-tab ml-auto"
             title="重置筛选">
             <RotateCcw className="w-3.5 h-3.5" />
@@ -381,7 +357,7 @@ export default function Dashboard() {
             </div>
             <p className="text-sm font-medium" style={{ color: '#64748B' }}>暂无热点数据</p>
             <p className="text-xs mt-1" style={{ color: '#334155' }}>
-              添加监控词或热点域开始收集内容
+              添加监控词开始收集内容
             </p>
           </div>
         ) : (
@@ -401,7 +377,7 @@ export default function Dashboard() {
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-xs" style={{ background: '#0D1221', border: '1px solid rgba(255,255,255,0.06)', color: '#475569' }}>
         <Zap className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#3B82F6' }} />
         <span>
-          下次扫描约 30 分钟后 &nbsp;·&nbsp; {kwCount} 监控词 &nbsp;·&nbsp; {domainCount} 热点域
+          下次扫描约 30 分钟后 &nbsp;·&nbsp; {kwCount} 监控词
         </span>
         <span className="ml-auto font-medium" style={{ color: '#334155' }}>
           共 {sorted.length} 条

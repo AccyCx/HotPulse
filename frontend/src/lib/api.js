@@ -16,25 +16,16 @@ export const keywordsApi = {
   checkNow: () => api.post('/keywords/check-now'),
 }
 
-export const domainsApi = {
-  getAll: () => api.get('/domains'),
-  add: (name, description) => api.post('/domains', { name, description }),
-  toggle: (id, enabled) => api.patch(`/domains/${id}`, { enabled }),
-  remove: id => api.delete(`/domains/${id}`),
-  refresh: () => api.post('/domains/refresh'),
-}
-
-export const topicsApi = {
-  getAll: params => api.get('/topics', { params }),
-  getStats: () => api.get('/topics/stats'),
-}
-
 export const alertsApi = {
   getAll: params => api.get('/alerts', { params }),
   getStats: () => api.get('/alerts/stats'),
   markRead: id => api.patch(`/alerts/${id}/read`),
   markAllRead: () => api.post('/alerts/read-all'),
   clearAll: () => api.delete('/alerts'),
+}
+
+export const searchApi = {
+  searchAlerts: params => api.get('/search/alerts', { params }),
 }
 
 export const settingsApi = {

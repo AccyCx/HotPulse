@@ -68,9 +68,9 @@ async function fetchFromAllSources(keyword) {
 }
 
 export async function processKeyword(kw, { maxAlerts = Infinity } = {}) {
-  // Re-read enabled state in case the user toggled it between schedule and execution
-  const latest = db.prepare('SELECT enabled FROM keywords WHERE id = ?').get(kw.id)
-  if (!latest || !latest.enabled) {
+  // Re-read enabled/deleted state in case the user toggled it between schedule and execution
+  const latest = db.prepare('SELECT enabled, deleted_at FROM keywords WHERE id = ?').get(kw.id)
+  if (!latest || !latest.enabled || latest.deleted_at) {
     console.log(`[Monitor] Skip "${kw.keyword}" (disabled or deleted)`)
     return
   }
@@ -107,9 +107,9 @@ export async function processKeyword(kw, { maxAlerts = Infinity } = {}) {
     if (!relevant || confidence < 0.6) continue
 
     const alertId = db.prepare(`
-      INSERT INTO alerts (keyword_id, title, summary, url, source, relevance_score)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(kw.id, item.title, item.summary || '', item.url, item.source, confidence).lastInsertRowid
+      INSERT INTO alerts (keyword_id, keyword_text, title, summary, url, source, relevance_score)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(kw.id, kw.keyword, item.title, item.summary || '', item.url, item.source, confidence).lastInsertRowid
 
     const alert = { id: alertId, keyword: kw.keyword, ...item, relevance_score: confidence }
 

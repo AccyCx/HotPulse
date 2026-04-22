@@ -32,7 +32,7 @@
 │                    Frontend (React + Vite)                     │
 │                                                               │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐    │
-│  │Dashboard │ │Keywords  │ │  Topics  │ │  Settings    │    │
+│  │Dashboard │ │Keywords  │ │  Search  │ │  Settings    │    │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────────┘    │
 │                                                               │
 │  useWebSocket hook → 实时通知  |  axios → REST API            │
@@ -43,16 +43,15 @@
 │                                                               │
 │  ┌─────────────────────────────────────────────────────────┐  │
 │  │                    REST API Routes                       │  │
-│  │  GET/POST /api/keywords   GET/POST /api/domains          │  │
-│  │  GET /api/topics          GET /api/notifications         │  │
-│  │  GET /api/alerts          POST /api/settings             │  │
+│  │  GET/POST /api/keywords   GET /api/alerts                │  │
+│  │  GET /api/search/alerts   POST /api/settings             │  │
 │  └──────────────────────────────┬──────────────────────────┘  │
 │                                 │                              │
 │  ┌──────────────┐  ┌────────────▼────────────┐               │
 │  │  WebSocket   │  │     Service Layer        │               │
 │  │  Server (ws) │  │                          │               │
 │  │  Heartbeat   │  │  MonitorService (cron)   │               │
-│  │  Broadcast   │  │  DiscoveryService (cron) │               │
+│  │  Broadcast   │  │                          │               │
 │  └──────┬───────┘  │  NotificationService     │               │
 │         │          │  EmailService (nodemailer)│               │
 │         │          │  AIService (OpenRouter)   │               │
@@ -101,15 +100,13 @@ d:\Desktop\AIProject\
 │       │   └── schema.js          # 建表 SQL
 │       ├── routes/
 │       │   ├── keywords.js        # 关键词 CRUD
-│       │   ├── domains.js         # 监控领域 CRUD
-│       │   ├── topics.js          # 热点查询
 │       │   ├── alerts.js          # 告警历史
+│       │   ├── search.js          # 告警搜索
 │       │   ├── notifications.js   # 通知记录
 │       │   └── settings.js        # 配置读写
 │       ├── services/
 │       │   ├── ai.js              # OpenRouter 调用
 │       │   ├── monitor.js         # 关键词监控定时任务
-│       │   ├── discovery.js       # 热点发现定时任务
 │       │   ├── notification.js    # 通知调度
 │       │   ├── email.js           # Nodemailer 封装
 │       │   └── websocket.js       # ws 服务端 + 心跳
@@ -180,32 +177,13 @@ CREATE TABLE alerts (
   triggered_at TEXT DEFAULT (datetime('now'))
 );
 
--- 用户配置的监控领域
-CREATE TABLE domains (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE,
-  description TEXT,
-  enabled INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-
--- 发现的热点内容
-CREATE TABLE topics (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  domain_id INTEGER REFERENCES domains(id),
-  title TEXT NOT NULL,
-  summary TEXT,
-  url TEXT,
-  source TEXT,
-  heat_score REAL DEFAULT 0,
-  discovered_at TEXT DEFAULT (datetime('now'))
-);
+-- v1.1 起移除“热点域/领域发现”模块，仅保留监控词→alerts
 
 -- 通知发送记录
 CREATE TABLE notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  type TEXT NOT NULL,         -- 'alert' | 'topic'
-  ref_id INTEGER,             -- alert_id 或 topic_id
+  type TEXT NOT NULL,         -- 'alert'
+  ref_id INTEGER,             -- alert_id
   channel TEXT NOT NULL,      -- 'websocket' | 'browser' | 'email'
   status TEXT DEFAULT 'sent', -- 'sent' | 'failed'
   sent_at TEXT DEFAULT (datetime('now'))
@@ -232,18 +210,10 @@ CREATE TABLE settings (
 | DELETE | /api/keywords/:id | 删除关键词 |
 | GET | /api/keywords/:id/alerts | 该关键词的告警历史 |
 
-### 领域接口
+### 搜索接口
 | Method | Path | 说明 |
 |--------|------|------|
-| GET | /api/domains | 获取所有监控领域 |
-| POST | /api/domains | 添加新领域 |
-| DELETE | /api/domains/:id | 删除领域 |
-
-### 热点接口
-| Method | Path | 说明 |
-|--------|------|------|
-| GET | /api/topics | 获取热点列表（支持 ?domain_id&limit&offset） |
-| POST | /api/topics/refresh | 手动触发一次热点刷新 |
+| GET | /api/search/alerts | 搜索已采集告警（q、keyword_id、source、unread、from、to、limit、offset） |
 
 ### 告警接口
 | Method | Path | 说明 |
@@ -266,7 +236,6 @@ CREATE TABLE settings (
 | 任务 | Cron 表达式 | 说明 |
 |------|------------|------|
 | 关键词监控 | `*/30 * * * *` | 每 30 分钟检查一次 |
-| 热点发现 | `*/30 * * * *` | 每 30 分钟采集一次 |
 | 数据清理 | `0 2 * * *` | 每天凌晨 2 点清理 7 天前数据 |
 
 ---

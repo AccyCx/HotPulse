@@ -19,18 +19,21 @@ db.exec(`
     enabled INTEGER DEFAULT 1,
     check_count INTEGER DEFAULT 0,
     last_checked_at TEXT,
+    deleted_at TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
 
   CREATE TABLE IF NOT EXISTS alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     keyword_id INTEGER REFERENCES keywords(id) ON DELETE CASCADE,
+    keyword_text TEXT,
     title TEXT NOT NULL,
     summary TEXT,
     url TEXT,
     source TEXT,
     relevance_score REAL DEFAULT 0,
     is_read INTEGER DEFAULT 0,
+    expires_at TEXT,
     triggered_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -68,6 +71,22 @@ db.exec(`
     updated_at TEXT DEFAULT (datetime('now'))
   );
 `)
+
+// Lightweight "migrations" for existing DBs.
+// SQLite doesn't support IF NOT EXISTS for ADD COLUMN reliably across versions,
+// so we attempt and ignore "duplicate column" errors.
+function tryAddColumn(table, columnDef) {
+  try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`) } catch {}
+}
+
+tryAddColumn('keywords', 'deleted_at TEXT')
+tryAddColumn('alerts', 'keyword_text TEXT')
+tryAddColumn('alerts', 'expires_at TEXT')
+
+// Helpful indexes (best-effort)
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_keyword_id ON alerts(keyword_id)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_triggered_at ON alerts(triggered_at)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_expires_at ON alerts(expires_at)') } catch {}
 
 // Seed default settings if not present
 const defaultSettings = {

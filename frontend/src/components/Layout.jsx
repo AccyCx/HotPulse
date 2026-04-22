@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router'
-import { TrendingUp, Tag, Search, Bell, BellOff, BellRing, RefreshCw, Zap, Radio } from 'lucide-react'
+import { TrendingUp, Tag, Search, Bell, BellOff, BellRing, RefreshCw, Zap } from 'lucide-react'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useBrowserNotification } from '../hooks/useNotification'
 import { alertsApi } from '../lib/api'
@@ -10,7 +10,7 @@ import NotificationPanel from './NotificationPanel'
 const navItems = [
   { to: '/',         icon: TrendingUp, label: '热点雷达' },
   { to: '/keywords', icon: Tag,        label: '监控词'   },
-  { to: '/topics',   icon: Radio,      label: '热点域'   },
+  { to: '/search',   icon: Search,     label: '搜索'     },
 ]
 
 export default function Layout({ children }) {
@@ -62,8 +62,6 @@ export default function Layout({ children }) {
       })
       setToasts(p => [{ id: Date.now(), type: 'alert', title: `新预警 · ${a.keyword}`, body: a.title, url: a.url }, ...p].slice(0, 4))
       if (popupEnabled) notify(`HotPulse: ${a.keyword}`, a.title, a.url)
-    } else if (msg.type === 'topics') {
-      setToasts(p => [{ id: Date.now(), type: 'topic', title: `热点更新 · ${msg.data.domain}`, body: `发现 ${msg.data.count} 条新内容` }, ...p].slice(0, 4))
     }
   }, [notify, popupEnabled])
 

@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Keywords from './pages/Keywords'
-import Topics from './pages/Topics'
+import SearchPage from './pages/Search'
 import Settings from './pages/Settings'
 
 export default function App() {
@@ -12,7 +12,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/keywords" element={<Keywords />} />
-          <Route path="/topics" element={<Topics />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>

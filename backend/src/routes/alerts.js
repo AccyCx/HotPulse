@@ -6,8 +6,9 @@ const router = Router()
 router.get('/', (req, res) => {
   const { limit = 30, offset = 0, unread } = req.query
   let query = `
-    SELECT a.*, k.keyword FROM alerts a
-    JOIN keywords k ON a.keyword_id = k.id
+    SELECT a.*, COALESCE(k.keyword, a.keyword_text) as keyword
+    FROM alerts a
+    LEFT JOIN keywords k ON a.keyword_id = k.id
   `
   if (unread === '1') query += ' WHERE a.is_read = 0'
   query += ' ORDER BY a.triggered_at DESC LIMIT ? OFFSET ?'
