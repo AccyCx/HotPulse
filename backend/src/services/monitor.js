@@ -3,35 +3,74 @@ import db from '../db/index.js'
 import { validateRelevance } from './ai.js'
 import { broadcast } from './websocket.js'
 import { sendAlertEmail } from './email.js'
-import { searchHackerNews } from '../scrapers/hackerNews.js'
-import { searchGoogleNews } from '../scrapers/googleNews.js'
-import { searchReddit } from '../scrapers/reddit.js'
+import { searchHackerNews, getHNTopStories } from '../scrapers/hackerNews.js'
+import { searchGoogleNews, getTrendingGoogleNews } from '../scrapers/googleNews.js'
+import { searchReddit, getSubredditHot } from '../scrapers/reddit.js'
 import { searchTwitter } from '../scrapers/twitter.js'
-import { searchRssFeeds } from '../scrapers/rss.js'
+import { searchRssFeeds, fetchTechBlogFeeds } from '../scrapers/rss.js'
 
 let monitorTask = null
+
+const KEYWORD_SUBREDDIT_MAP = {
+  ai: ['MachineLearning', 'artificial', 'LocalLLaMA'],
+  gpt: ['MachineLearning', 'ChatGPT', 'artificial'],
+  llm: ['MachineLearning', 'LocalLLaMA'],
+  crypto: ['CryptoCurrency', 'Bitcoin'],
+  programming: ['programming', 'webdev'],
+}
+
+function getKeywordSubreddits(keyword) {
+  const lower = keyword.toLowerCase()
+  for (const [key, subs] of Object.entries(KEYWORD_SUBREDDIT_MAP)) {
+    if (lower.includes(key)) return subs.slice(0, 2)
+  }
+  return []
+}
 
 async function fetchFromAllSources(keyword) {
   const settings = db.prepare('SELECT key, value FROM settings').all()
   const cfg = Object.fromEntries(settings.map(r => [r.key, r.value]))
 
   const tasks = []
-  if (cfg.sources_hackernews === '1') tasks.push(searchHackerNews(keyword, 5))
-  if (cfg.sources_googlenews === '1') tasks.push(searchGoogleNews(keyword, 8))
-  if (cfg.sources_reddit === '1') tasks.push(searchReddit(keyword, 5))
+
+  if (cfg.sources_hackernews === '1') {
+    tasks.push(searchHackerNews(keyword, 10))
+    tasks.push(getHNTopStories(20))
+  }
+  if (cfg.sources_googlenews === '1') {
+    tasks.push(searchGoogleNews(keyword, 10))
+    tasks.push(getTrendingGoogleNews(keyword, 8))
+  }
+  if (cfg.sources_reddit === '1') {
+    tasks.push(searchReddit(keyword, 10))
+    const subs = getKeywordSubreddits(keyword)
+    tasks.push(...subs.map(s => getSubredditHot(s, 8)))
+  }
   if (cfg.sources_twitter === '1') tasks.push(searchTwitter(keyword, 10))
-  tasks.push(searchRssFeeds(keyword, 5))
+
+  // RSS: always fetch all tech blogs + keyword-filtered results
+  tasks.push(fetchTechBlogFeeds(10))
+  tasks.push(searchRssFeeds(keyword, 10))
 
   const results = await Promise.allSettled(tasks)
-  return results
+  const allItems = results
     .filter(r => r.status === 'fulfilled')
     .flatMap(r => r.value)
     .filter(item => item.title && item.url)
+
+  // Deduplicate by URL within this fetch batch
+  const seen = new Set()
+  return allItems.filter(item => {
+    if (seen.has(item.url)) return false
+    seen.add(item.url)
+    return true
+  })
 }
 
-async function processKeyword(kw) {
+export async function processKeyword(kw) {
   console.log(`[Monitor] Checking keyword: "${kw.keyword}"`)
   const items = await fetchFromAllSources(kw.keyword)
+  console.log(`[Monitor] Fetched ${items.length} items for "${kw.keyword}"`)
 
   // Deduplicate by URL against existing alerts
   const existingUrls = new Set(
@@ -39,7 +78,22 @@ async function processKeyword(kw) {
   )
   const newItems = items.filter(item => item.url && !existingUrls.has(item.url))
 
-  for (const item of newItems.slice(0, 5)) {
+  // Pre-filter: prioritise items whose title/summary contains the keyword, then append the rest
+  const kwLower = kw.keyword.toLowerCase()
+  const directHits = newItems.filter(item =>
+    item.title.toLowerCase().includes(kwLower) ||
+    (item.summary || '').toLowerCase().includes(kwLower)
+  )
+  const indirect = newItems.filter(item =>
+    !item.title.toLowerCase().includes(kwLower) &&
+    !(item.summary || '').toLowerCase().includes(kwLower)
+  )
+  // Process direct hits first (up to 20), then indirect hits as supplementary (up to 10)
+  const candidates = [...directHits.slice(0, 20), ...indirect.slice(0, 10)]
+
+  console.log(`[Monitor] ${candidates.length} candidates (${directHits.length} direct / ${indirect.length} indirect) for "${kw.keyword}"`)
+
+  for (const item of candidates) {
     const { relevant, confidence } = await validateRelevance(kw.keyword, item.title, item.summary)
     if (!relevant || confidence < 0.6) continue
 

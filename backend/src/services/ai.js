@@ -43,7 +43,7 @@ async function callOpenRouter(prompt, settings) {
 export async function validateRelevance(keyword, title, summary = '') {
   const settings = getSettings()
   if (!settings.openrouter_api_key) {
-    return { relevant: true, confidence: 0.5, reason: 'AI未配置，默认通过' }
+    return { relevant: true, confidence: 0.8, reason: 'AI未配置，默认通过' }
   }
 
   const prompt = `判断以下内容是否与关键词"${keyword}"真实相关（不是广告或无关内容）。
@@ -62,7 +62,7 @@ export async function validateRelevance(keyword, title, summary = '') {
     }
   } catch (err) {
     console.error('[AI] validateRelevance error:', err.message)
-    return { relevant: true, confidence: 0.5, reason: 'AI调用失败，默认通过' }
+    return { relevant: true, confidence: 0.8, reason: 'AI调用失败，默认通过' }
   }
 }
 

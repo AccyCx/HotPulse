@@ -1,15 +1,18 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 export function useBrowserNotification() {
-  const permissionRef = useRef(Notification.permission)
+  const permissionRef = useRef(
+    typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+  )
 
   useEffect(() => {
+    if (typeof Notification === 'undefined') return
     if (Notification.permission === 'default') {
       Notification.requestPermission().then(p => { permissionRef.current = p })
     }
   }, [])
 
-  const notify = (title, body, url) => {
+  const notify = useCallback((title, body, url) => {
     if (permissionRef.current !== 'granted') return
     const n = new Notification(title, {
       body,
@@ -17,7 +20,7 @@ export function useBrowserNotification() {
       badge: '/favicon.svg',
     })
     if (url) n.onclick = () => { window.focus(); window.open(url, '_blank') }
-  }
+  }, [])
 
   return { notify }
 }

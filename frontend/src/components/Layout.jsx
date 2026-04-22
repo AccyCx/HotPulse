@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { TrendingUp, Tag, Search, Bell, RefreshCw, Zap, Radio } from 'lucide-react'
 import { useWebSocket } from '../hooks/useWebSocket'
@@ -12,10 +12,17 @@ const navItems = [
 ]
 
 export default function Layout({ children }) {
-  const [toasts, setToasts]         = useState([])
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [toasts,          setToasts]          = useState([])
+  const [unreadCount,     setUnreadCount]     = useState(0)
+  const [keywordScanning, setKeywordScanning] = useState(false)
   const { notify } = useBrowserNotification()
   const location   = useLocation()
+
+  useEffect(() => {
+    const handler = e => setKeywordScanning(e.detail.active)
+    window.addEventListener('hp:keyword-scanning', handler)
+    return () => window.removeEventListener('hp:keyword-scanning', handler)
+  }, [])
 
   const handleMessage = useCallback(msg => {
     if (msg.type === 'alert') {
@@ -85,6 +92,20 @@ export default function Layout({ children }) {
               <RefreshCw className={`w-3.5 h-3.5 ${connected ? 'animate-spin-slow' : ''}`} />
               {connected ? '扫描中' : '已离线'}
             </div>
+
+            {/* Keyword scanning indicator */}
+            {keywordScanning && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                style={{
+                  background: 'rgba(6,182,212,0.15)',
+                  color:      '#06B6D4',
+                  border:     '1px solid rgba(6,182,212,0.3)',
+                }}
+              >
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                扫描中
+              </div>
+            )}
 
             {/* Notification bell */}
             <button
