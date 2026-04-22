@@ -24,6 +24,12 @@ router.post('/read-all', (req, res) => {
   res.json({ success: true })
 })
 
+// Delete all alerts (used by bell panel's "全部已读" button)
+router.delete('/', (req, res) => {
+  const result = db.prepare('DELETE FROM alerts').run()
+  res.json({ success: true, deleted: result.changes })
+})
+
 router.get('/stats', (req, res) => {
   const total = db.prepare('SELECT COUNT(*) as count FROM alerts').get().count
   const unread = db.prepare('SELECT COUNT(*) as count FROM alerts WHERE is_read = 0').get().count

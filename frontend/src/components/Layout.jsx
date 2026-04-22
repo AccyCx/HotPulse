@@ -1,9 +1,11 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router'
-import { TrendingUp, Tag, Search, Bell, RefreshCw, Zap, Radio } from 'lucide-react'
+import { TrendingUp, Tag, Search, Bell, BellOff, BellRing, RefreshCw, Zap, Radio } from 'lucide-react'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useBrowserNotification } from '../hooks/useNotification'
+import { alertsApi } from '../lib/api'
 import NotificationToast from './NotificationToast'
+import NotificationPanel from './NotificationPanel'
 
 const navItems = [
   { to: '/',         icon: TrendingUp, label: '热点雷达' },
@@ -13,10 +15,30 @@ const navItems = [
 
 export default function Layout({ children }) {
   const [toasts,          setToasts]          = useState([])
-  const [unreadCount,     setUnreadCount]     = useState(0)
+  const [alertsList,      setAlertsList]      = useState([])
+  const [panelOpen,       setPanelOpen]       = useState(false)
   const [keywordScanning, setKeywordScanning] = useState(false)
+  const [popupEnabled,    setPopupEnabled]    = useState(() => {
+    const saved = localStorage.getItem('hp-system-notify-enabled')
+    return saved == null ? true : saved === 'true'
+  })
+  const seenAlertKeysRef = useRef(new Set())
   const { notify } = useBrowserNotification()
   const location   = useLocation()
+
+  // Load existing unread alerts on mount so the bell shows the real count
+  useEffect(() => {
+    alertsApi.getAll({ unread: 1, limit: 50 })
+      .then(list => {
+        const alerts = list || []
+        alerts.forEach(a => {
+          const key = a.id ?? `${a.keyword}:${a.url || a.title}`
+          seenAlertKeysRef.current.add(key)
+        })
+        setAlertsList(alerts)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const handler = e => setKeywordScanning(e.detail.active)
@@ -24,20 +46,44 @@ export default function Layout({ children }) {
     return () => window.removeEventListener('hp:keyword-scanning', handler)
   }, [])
 
+  useEffect(() => {
+    localStorage.setItem('hp-system-notify-enabled', String(popupEnabled))
+  }, [popupEnabled])
+
   const handleMessage = useCallback(msg => {
     if (msg.type === 'alert') {
       const a = msg.data
-      setUnreadCount(c => c + 1)
+      const alertKey = a.id ?? `${a.keyword}:${a.url || a.title}`
+      if (seenAlertKeysRef.current.has(alertKey)) return
+      seenAlertKeysRef.current.add(alertKey)
+
+      setAlertsList(prev => {
+        return [{ ...a, receivedAt: new Date().toISOString() }, ...prev].slice(0, 50)
+      })
       setToasts(p => [{ id: Date.now(), type: 'alert', title: `新预警 · ${a.keyword}`, body: a.title, url: a.url }, ...p].slice(0, 4))
-      notify(`HotPulse: ${a.keyword}`, a.title, a.url)
+      if (popupEnabled) notify(`HotPulse: ${a.keyword}`, a.title, a.url)
     } else if (msg.type === 'topics') {
       setToasts(p => [{ id: Date.now(), type: 'topic', title: `热点更新 · ${msg.data.domain}`, body: `发现 ${msg.data.count} 条新内容` }, ...p].slice(0, 4))
     }
-  }, [notify])
+  }, [notify, popupEnabled])
 
   const { connected } = useWebSocket(handleMessage)
   const removeToast   = id => setToasts(p => p.filter(t => t.id !== id))
-  const clearUnread   = () => setUnreadCount(0)
+
+  const togglePanel = () => setPanelOpen(v => !v)
+  const closePanel  = useCallback(() => setPanelOpen(false), [])
+  const togglePopupEnabled = useCallback(() => {
+    setPopupEnabled(prev => !prev)
+  }, [])
+
+  const handleClearAll = useCallback(async () => {
+    setAlertsList([])
+    seenAlertKeysRef.current.clear()
+    setPanelOpen(false)
+    try { await alertsApi.clearAll() } catch {}
+  }, [])
+
+  const unreadCount = alertsList.length
 
   return (
     <div className="min-h-screen" style={{ background: '#080C18' }}>
@@ -107,25 +153,51 @@ export default function Layout({ children }) {
               </div>
             )}
 
-            {/* Notification bell */}
+            {/* System notification toggle */}
             <button
-              onClick={clearUnread}
-              className="relative p-2 rounded-lg cursor-pointer transition-colors"
-              style={{ color: '#94A3B8' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              onClick={togglePopupEnabled}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+              style={{
+                background: popupEnabled ? 'rgba(16,185,129,0.14)' : 'rgba(255,255,255,0.05)',
+                color:      popupEnabled ? '#10B981' : '#94A3B8',
+                border:     `1px solid ${popupEnabled ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'}`,
+              }}
             >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full
-                             text-[9px] font-bold text-white flex items-center justify-center px-1"
-                  style={{ background: '#EF4444' }}
-                >
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
+              {popupEnabled ? <BellRing className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
+              {popupEnabled ? '系统通知已开' : '系统通知已关'}
             </button>
+
+            {/* Notification bell + dropdown panel */}
+            <div className="relative">
+              <button
+                onClick={togglePanel}
+                className="relative p-2 rounded-lg cursor-pointer transition-colors"
+                style={{
+                  color:      panelOpen ? '#E2E8F0' : '#94A3B8',
+                  background: panelOpen ? 'rgba(255,255,255,0.06)' : 'transparent',
+                }}
+                onMouseEnter={e => { if (!panelOpen) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+                onMouseLeave={e => { if (!panelOpen) e.currentTarget.style.background = 'transparent' }}
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full
+                               text-[9px] font-bold text-white flex items-center justify-center px-1"
+                    style={{ background: '#EF4444' }}
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <NotificationPanel
+                open={panelOpen}
+                onClose={closePanel}
+                alerts={alertsList}
+                onClearAll={handleClearAll}
+              />
+            </div>
           </div>
         </div>
       </header>

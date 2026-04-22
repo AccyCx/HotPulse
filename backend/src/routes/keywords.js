@@ -16,8 +16,9 @@ router.post('/', (req, res) => {
     const id = db.prepare('INSERT INTO keywords (keyword) VALUES (?)').run(keyword.trim()).lastInsertRowid
     const kw = db.prepare('SELECT * FROM keywords WHERE id = ?').get(id)
     res.status(201).json(kw)
-    // Immediately scan for this new keyword without blocking the response
-    processKeyword(kw).catch(err =>
+    // Immediately scan for this new keyword without blocking the response.
+    // Cap the initial scan at 5 alerts to avoid flooding on first entry.
+    processKeyword(kw, { maxAlerts: 5 }).catch(err =>
       console.error(`[Monitor] Initial scan error for "${kw.keyword}":`, err.message)
     )
   } catch (err) {

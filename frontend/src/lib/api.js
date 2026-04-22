@@ -34,6 +34,7 @@ export const alertsApi = {
   getStats: () => api.get('/alerts/stats'),
   markRead: id => api.patch(`/alerts/${id}/read`),
   markAllRead: () => api.post('/alerts/read-all'),
+  clearAll: () => api.delete('/alerts'),
 }
 
 export const settingsApi = {

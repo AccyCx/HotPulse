@@ -67,8 +67,15 @@ async function fetchFromAllSources(keyword) {
   })
 }
 
-export async function processKeyword(kw) {
-  console.log(`[Monitor] Checking keyword: "${kw.keyword}"`)
+export async function processKeyword(kw, { maxAlerts = Infinity } = {}) {
+  // Re-read enabled state in case the user toggled it between schedule and execution
+  const latest = db.prepare('SELECT enabled FROM keywords WHERE id = ?').get(kw.id)
+  if (!latest || !latest.enabled) {
+    console.log(`[Monitor] Skip "${kw.keyword}" (disabled or deleted)`)
+    return
+  }
+
+  console.log(`[Monitor] Checking keyword: "${kw.keyword}" (maxAlerts=${maxAlerts})`)
   const items = await fetchFromAllSources(kw.keyword)
   console.log(`[Monitor] Fetched ${items.length} items for "${kw.keyword}"`)
 
@@ -93,7 +100,9 @@ export async function processKeyword(kw) {
 
   console.log(`[Monitor] ${candidates.length} candidates (${directHits.length} direct / ${indirect.length} indirect) for "${kw.keyword}"`)
 
+  let emitted = 0
   for (const item of candidates) {
+    if (emitted >= maxAlerts) break
     const { relevant, confidence } = await validateRelevance(kw.keyword, item.title, item.summary)
     if (!relevant || confidence < 0.6) continue
 
@@ -114,11 +123,12 @@ export async function processKeyword(kw) {
     db.prepare(`INSERT INTO notifications (type, ref_id, channel, status) VALUES ('alert', ?, 'websocket', 'sent')`).run(alertId)
     db.prepare(`INSERT INTO notifications (type, ref_id, channel, status) VALUES ('alert', ?, 'email', 'sent')`).run(alertId)
 
-    console.log(`[Monitor] Alert triggered: "${kw.keyword}" → ${item.title.slice(0, 50)}`)
+    emitted++
+    console.log(`[Monitor] Alert triggered (${emitted}/${maxAlerts === Infinity ? '∞' : maxAlerts}): "${kw.keyword}" → ${item.title.slice(0, 50)}`)
   }
 
   // Update last checked time
-  db.prepare('UPDATE keywords SET last_checked_at = datetime("now"), check_count = check_count + 1 WHERE id = ?').run(kw.id)
+  db.prepare("UPDATE keywords SET last_checked_at = datetime('now'), check_count = check_count + 1 WHERE id = ?").run(kw.id)
 }
 
 export async function runMonitorCycle() {
