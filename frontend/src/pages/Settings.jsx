@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Key, Mail, Database, CheckCircle2, XCircle, Loader, Eye, EyeOff, Save, Cpu, Settings as SettingsIcon } from 'lucide-react'
 import { settingsApi } from '../lib/api'
 
-function Section({ icon: Icon, title, accent = '#3B82F6', children }) {
+function Section({ icon: Icon, title, accent = '#22d3ee', children }) {
   return (
     <div className="hp-card p-5">
       <div className="flex items-center gap-2 mb-5 pb-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
@@ -20,9 +20,9 @@ function Section({ icon: Icon, title, accent = '#3B82F6', children }) {
 function Field({ label, hint, children }) {
   return (
     <div>
-      <label className="block text-xs font-medium mb-1.5" style={{ color: '#94A3B8' }}>{label}</label>
+      <label className="mb-1.5 block text-xs font-medium text-hp-muted">{label}</label>
       {children}
-      {hint && <p className="text-xs mt-1.5" style={{ color: '#475569' }}>{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs text-hp-dim">{hint}</p>}
     </div>
   )
 }
@@ -31,7 +31,7 @@ function Toggle({ label, settingKey, value, onChange }) {
   return (
     <div className="flex items-center justify-between py-2.5 border-b last:border-0"
       style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-      <span className="text-sm" style={{ color: '#94A3B8' }}>{label}</span>
+      <span className="text-sm text-hp-muted">{label}</span>
       <label className="hp-toggle">
         <input type="checkbox" checked={value === '1'} onChange={() => onChange(settingKey, value === '1' ? '0' : '1')} />
         <div className="hp-toggle-track"><div className="hp-toggle-thumb" /></div>
@@ -40,7 +40,7 @@ function Toggle({ label, settingKey, value, onChange }) {
   )
 }
 
-function TestBtn({ label, onTest, accent = '#3B82F6' }) {
+function TestBtn({ label, onTest, accent = '#22d3ee' }) {
   const [st,  setSt]  = useState(null)
   const [msg, setMsg] = useState('')
 
@@ -104,13 +104,13 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 animate-fade-in pb-8">
-      <div className="flex items-center gap-2 mb-2">
-        <SettingsIcon className="w-5 h-5" style={{ color: '#94A3B8' }} />
-        <h1 className="text-lg font-semibold text-white">系统配置</h1>
+      <div className="mb-2 flex items-center gap-2">
+        <SettingsIcon className="h-5 w-5 text-hp-muted" />
+        <h1 className="hp-font-display text-lg font-semibold text-white">系统配置</h1>
       </div>
 
       {/* AI Config */}
-      <Section icon={Cpu} title="AI 配置" accent="#8B5CF6">
+      <Section icon={Cpu} title="AI 配置" accent="#818cf8">
         <Field label="OpenRouter API Key" hint="访问 openrouter.ai — 有免费额度">
           {pwInput('openrouter_api_key', 'openrouter', 'sk-or-...')}
         </Field>
@@ -122,11 +122,11 @@ export default function Settings() {
             <option value="google/gemini-2.0-flash-001">google/gemini-2.0-flash-001</option>
           </select>
         </Field>
-        <TestBtn label="测试 AI" onTest={settingsApi.testAI} accent="#A78BFF" />
+        <TestBtn label="测试 AI" onTest={settingsApi.testAI} accent="#818cf8" />
       </Section>
 
       {/* Twitter / X */}
-      <Section icon={Key} title="Twitter / X API" accent="#06B6D4">
+      <Section icon={Key} title="Twitter / X API" accent="#38bdf8">
         <Field label="twitterapi.io API Key" hint="访问 twitterapi.io — $0.1 免费额度，无需信用卡">
           {pwInput('twitter_api_key', 'twitter', 'your_api_key_here')}
         </Field>

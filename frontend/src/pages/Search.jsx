@@ -34,8 +34,7 @@ function AlertCard({ a }) {
         </span>
         {a.keyword && <span className="hp-keyword">{a.keyword}</span>}
         {!a.is_read && (
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded"
-            style={{ background: 'rgba(59,130,246,0.12)', color: '#60A5FA', border: '1px solid rgba(59,130,246,0.2)' }}>
+          <span className="rounded border border-lime-400/25 bg-lime-400/10 px-2 py-0.5 text-[11px] font-semibold text-lime-200">
             未读
           </span>
         )}
@@ -121,9 +120,9 @@ export default function SearchPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-5 animate-fade-in">
       <div className="hp-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Search className="w-4 h-4" style={{ color: '#06B6D4' }} />
-          <h2 className="text-base font-semibold text-white">搜索热点信息</h2>
+        <div className="mb-4 flex items-center gap-2">
+          <Search className="h-4 w-4 text-lime-400" />
+          <h2 className="hp-font-display text-base font-semibold text-white">搜索热点信息</h2>
           <button onClick={load} disabled={loading}
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors disabled:opacity-50"
             style={{ background: 'rgba(255,255,255,0.05)', color: '#94A3B8', border: '1px solid rgba(255,255,255,0.08)' }}>

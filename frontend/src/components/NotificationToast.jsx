@@ -9,42 +9,51 @@ export default function NotificationToast({ toast, onClose }) {
     return () => clearTimeout(t)
   }, [onClose])
 
-  const isAlert  = toast.type === 'alert'
-  const accent   = isAlert ? '#3B82F6' : '#10B981'
-  const bgAccent = isAlert ? 'rgba(59,130,246,0.08)' : 'rgba(16,185,129,0.08)'
+  const isAlert = toast.type === 'alert'
+  const accent = isAlert ? '#22d3ee' : '#34d399'
+  const bgAccent = isAlert ? 'rgba(34,211,238,0.08)' : 'rgba(52,211,153,0.08)'
 
   return (
     <div
-      className={`pointer-events-auto toast-enter p-3.5 w-full transition-all duration-300 rounded-xl
-                  ${visible ? 'opacity-100' : 'opacity-0 translate-x-4'}`}
+      className={`pointer-events-auto toast-enter w-full rounded-xl p-3.5 transition-all duration-300 ${
+        visible ? 'opacity-100' : 'translate-x-2 opacity-0'
+      }`}
       style={{
-        background:  '#111827',
-        border:      `1px solid rgba(255,255,255,0.1)`,
-        borderLeft:  `3px solid ${accent}`,
-        boxShadow:   '0 8px 32px rgba(0,0,0,0.5)',
+        background: '#18181b',
+        border: '1px solid rgba(255,255,255,0.09)',
+        borderLeft: `3px solid ${accent}`,
+        boxShadow: '0 8px 28px rgba(0,0,0,0.45)',
       }}
     >
       <div className="flex items-start gap-3">
-        <div className="w-7 h-7 flex items-center justify-center flex-shrink-0 mt-0.5 rounded-lg"
+        <div className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
           style={{ background: bgAccent }}>
           {isAlert
-            ? <Bell className="w-3.5 h-3.5" style={{ color: accent }} />
-            : <TrendingUp className="w-3.5 h-3.5" style={{ color: accent }} />}
+            ? <Bell className="h-3.5 w-3.5" style={{ color: accent }} />
+            : <TrendingUp className="h-3.5 w-3.5" style={{ color: accent }} />
+          }
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-white mb-0.5">{toast.title}</p>
-          <p className="text-xs text-hp-muted line-clamp-2">{toast.body}</p>
+        <div className="min-w-0 flex-1">
+          <p className="mb-0.5 text-xs font-semibold text-white">{toast.title}</p>
+          <p className="line-clamp-2 text-xs text-hp-muted">{toast.body}</p>
           {toast.url && (
-            <a href={toast.url} target="_blank" rel="noopener noreferrer"
-              className="text-[11px] flex items-center gap-1 mt-1.5 cursor-pointer hover:opacity-80 transition-opacity"
-              style={{ color: accent }}>
-              查看原文 <ExternalLink className="w-3 h-3" />
+            <a
+              href={toast.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1.5 inline-flex cursor-pointer items-center gap-1 text-[11px] transition-opacity hover:opacity-80"
+              style={{ color: accent }}
+            >
+              查看原文 <ExternalLink className="h-3 w-3" />
             </a>
           )}
         </div>
-        <button onClick={() => { setVisible(false); setTimeout(onClose, 300) }}
-          className="cursor-pointer text-hp-dim hover:text-hp-muted flex-shrink-0 transition-colors">
-          <X className="w-4 h-4" />
+        <button
+          type="button"
+          onClick={() => { setVisible(false); setTimeout(onClose, 300) }}
+          className="flex-shrink-0 cursor-pointer text-hp-dim transition-colors hover:text-hp-muted"
+        >
+          <X className="h-4 w-4" />
         </button>
       </div>
     </div>
