@@ -102,25 +102,45 @@ export default function Keywords() {
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    keywordsApi.getScanStatus()
+      .then(result => {
+        setScanningIds(new Set((result.active || []).map(scan => scan.keyword_id)))
+      })
+      .catch(() => {})
+
+    const handleScanStatus = e => {
+      const { keyword_id, active } = e.detail || {}
+      if (keyword_id == null) return
+      setScanningIds(prev => {
+        const next = new Set(prev)
+        if (active) next.add(keyword_id)
+        else next.delete(keyword_id)
+        return next
+      })
+      if (!active) {
+        keywordsApi.getAll().then(setKeywords).catch(() => {})
+      }
+    }
+
+    window.addEventListener('hp:keyword-scan-status', handleScanStatus)
+    return () => window.removeEventListener('hp:keyword-scan-status', handleScanStatus)
+  }, [])
+
   async function handleAdd(e) {
     e.preventDefault()
     if (!inputVal.trim() || adding) return
     setError('')
     setAdding(true)
-    window.dispatchEvent(new CustomEvent('hp:keyword-scanning', { detail: { active: true } }))
     try {
       const kw = await keywordsApi.add(inputVal.trim())
       setKeywords(p => [kw, ...p])
       setInputVal('')
       setScanningIds(prev => new Set(prev).add(kw.id))
-      setTimeout(() => {
-        setScanningIds(prev => { const n = new Set(prev); n.delete(kw.id); return n })
-      }, 60_000)
     } catch (err) {
       setError(String(err))
     } finally {
       setAdding(false)
-      window.dispatchEvent(new CustomEvent('hp:keyword-scanning', { detail: { active: false } }))
     }
   }
 

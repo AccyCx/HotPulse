@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   TrendingUp, Tag, Bell, RefreshCw, ExternalLink,
   ChevronDown, ChevronUp, Clock, Zap, AlertTriangle,
@@ -67,34 +67,48 @@ function StatCard({ icon: Icon, label, value, sub, accent, alert: isAlert }) {
 }
 
 /* ── Hot Card ── */
-function HotCard({ item }) {
+function HotCard({ item, isFresh = false }) {
   const [expanded, setExpanded] = useState(false)
   const score = (item.relevance_score || 0) * 10
   const priority = getPriority(score)
   const { label: platLabel, color: platColor } = getPlatform(item.source)
   const isUnread = !item.is_read
+  const needsReview = item.review_status === 'needs_review'
+  const pop = item.popularity_score
 
   return (
-    <div className="hp-card animate-fade-in p-4 sm:p-5"
+    <div className={`hp-card animate-fade-in p-4 sm:p-5 ${isFresh ? 'hp-card-new-alert' : ''}`}
       style={isUnread ? {
         borderColor: 'rgba(34,211,238,0.2)',
         boxShadow: '0 0 0 1px rgba(34,211,238,0.07), 0 6px 20px rgba(0,0,0,0.35)',
       } : {}}>
       {/* badges */}
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
-        <span className="hp-priority"
-          style={{ background: priority.bg, color: priority.color, border: `1px solid ${priority.color}25` }}>
-          <span className="h-1.5 w-1.5 rounded-full" style={{ background: priority.dot }} />
-          {priority.label}
-        </span>
-        <span className="hp-platform">
-          <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: platColor }} />
-          {platLabel}
-        </span>
-        {item.keyword && <span className="hp-keyword">{item.keyword}</span>}
-        <div className="ml-auto flex items-center gap-1.5">
-          {(item.relevance_score >= 0.7 || score >= 6) && (
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="hp-priority flex-shrink-0"
+            style={{ background: priority.bg, color: priority.color, border: `1px solid ${priority.color}25` }}>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: priority.dot }} />
+            {priority.label}
+          </span>
+          <span className="hp-platform flex-shrink-0">
+            <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: platColor }} />
+            {platLabel}
+          </span>
+          {item.keyword && (
+            <span className="hp-keyword max-w-[140px] truncate">{item.keyword}</span>
+          )}
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          {needsReview && (
+            <span className="hp-badge" style={{ background: 'rgba(245,158,11,0.10)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.20)' }}>待确认</span>
+          )}
+          {!needsReview && (item.relevance_score >= 0.7 || score >= 6) && (
             <span className="hp-badge" style={{ background: 'rgba(52,211,153,0.1)', color: '#6ee7b7', border: '1px solid rgba(52,211,153,0.18)' }}>可信</span>
+          )}
+          {pop !== undefined && pop !== null && (
+            <span className="hp-badge" style={{ background: 'rgba(255,255,255,0.06)', color: '#e5e7eb', border: '1px solid rgba(255,255,255,0.10)' }}>
+              热 {Math.round(Number(pop) * 100)}
+            </span>
           )}
           {score >= 8 && (
             <span className="hp-badge flex items-center gap-1" style={{ background: 'rgba(251,146,60,0.1)', color: '#fdba74', border: '1px solid rgba(251,146,60,0.2)' }}>
@@ -130,9 +144,9 @@ function HotCard({ item }) {
         </span>
       </div>
 
-      <div className="flex items-center gap-3 text-[11px] text-hp-dim">
-        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{timeAgo(item.triggered_at)}</span>
-        <div className="ml-auto flex items-center gap-1">
+      <div className="flex items-center justify-between gap-2 text-[11px] text-hp-dim">
+        <span className="flex flex-shrink-0 items-center gap-1"><Clock className="h-3 w-3" />{timeAgo(item.triggered_at)}</span>
+        <div className="flex flex-shrink-0 items-center gap-1">
           {item.url && (
             <a href={item.url} target="_blank" rel="noopener noreferrer"
               className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 transition-colors hover:bg-white/[0.06] hover:text-hp-muted">
@@ -163,6 +177,7 @@ const SORT_OPTIONS = [
   { key: 'latest', label: '最新发现' },
   { key: 'relevance', label: '相关性' },
 ]
+const PAGE_SIZE = 20
 
 /* ── Main ── */
 export default function Dashboard() {
@@ -170,31 +185,121 @@ export default function Dashboard() {
   const [kwCount, setKwCount] = useState(0)
   const [alertStats, setAlertStats] = useState({ total: 0, unread: 0, today: 0 })
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState('heat')
+  const [sortBy, setSortBy] = useState('latest')
   const [refreshing, setRefreshing] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [newAlertCount, setNewAlertCount] = useState(0)
+  const [liveRefreshCount, setLiveRefreshCount] = useState(0)
+  const [freshAlertIds, setFreshAlertIds] = useState(() => new Set())
+  const freshTimersRef = useRef(new Map())
+  const liveRefreshTimerRef = useRef(null)
 
-  async function load(showSpin = true) {
+  async function load(showSpin = true, page = currentPage) {
     if (showSpin) setLoading(true)
     else setRefreshing(true)
     try {
-      const [as, alerts, kws] = await Promise.all([
+      const [as, alertsPage, kws] = await Promise.all([
         alertsApi.getStats(),
-        alertsApi.getAll({ limit: 60 }),
+        alertsApi.getAll({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE, include_total: 1 }),
         keywordsApi.getAll(),
       ])
+      const alerts = Array.isArray(alertsPage) ? alertsPage : alertsPage.items || []
       setAlertStats(as)
       setKwCount(kws.length)
+      setTotal(Array.isArray(alertsPage) ? as.total : alertsPage.total || 0)
+      setCurrentPage(page)
+      setNewAlertCount(0)
+      setLiveRefreshCount(0)
       setFeedItems((alerts || []).map(a => ({ ...a, _type: 'alert' })))
     } catch {}
     finally { setLoading(false); setRefreshing(false) }
   }
 
+  function scrollToPageTop() {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+  }
+
+  async function handlePageChange(page) {
+    scrollToPageTop()
+    await load(false, page)
+    requestAnimationFrame(scrollToPageTop)
+  }
+
   useEffect(() => { load() }, [])
 
+  useEffect(() => {
+    return () => {
+      if (liveRefreshTimerRef.current) clearTimeout(liveRefreshTimerRef.current)
+      freshTimersRef.current.forEach(timer => clearTimeout(timer))
+      freshTimersRef.current.clear()
+    }
+  }, [])
+
+  useEffect(() => {
+    const markFreshAlert = id => {
+      setFreshAlertIds(prev => {
+        const next = new Set(prev)
+        next.add(id)
+        return next
+      })
+
+      const previousTimer = freshTimersRef.current.get(id)
+      if (previousTimer) clearTimeout(previousTimer)
+
+      const timer = setTimeout(() => {
+        setFreshAlertIds(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+        freshTimersRef.current.delete(id)
+      }, 5200)
+      freshTimersRef.current.set(id, timer)
+    }
+
+    const handleNewAlert = e => {
+      const alert = e.detail
+      if (!alert?.id) return
+
+      setAlertStats(prev => ({
+        ...prev,
+        total: prev.total + 1,
+        unread: prev.unread + 1,
+        today: prev.today + 1,
+      }))
+      setTotal(prev => prev + 1)
+
+      if (currentPage === 1) {
+        markFreshAlert(alert.id)
+        setLiveRefreshCount(prev => prev + 1)
+        if (liveRefreshTimerRef.current) clearTimeout(liveRefreshTimerRef.current)
+        liveRefreshTimerRef.current = setTimeout(() => setLiveRefreshCount(0), 4200)
+
+        setFeedItems(prev => {
+          if (prev.some(item => item.id === alert.id)) return prev
+          return [{ ...alert, _type: 'alert', is_read: 0 }, ...prev].slice(0, PAGE_SIZE)
+        })
+      } else {
+        setNewAlertCount(prev => prev + 1)
+      }
+    }
+
+    window.addEventListener('hp:new-alert', handleNewAlert)
+    return () => window.removeEventListener('hp:new-alert', handleNewAlert)
+  }, [currentPage])
+
   const sorted = [...feedItems].sort((a, b) => {
-    if (sortBy === 'latest') return new Date(b.triggered_at) - new Date(a.triggered_at)
-    return (b.relevance_score || 0) - (a.relevance_score || 0)
+    if (sortBy === 'heat') return (b.popularity_score || 0) - (a.popularity_score || 0)
+    if (sortBy === 'relevance') return (b.relevance_score || 0) - (a.relevance_score || 0)
+    // 'latest' (default): newest first
+    return new Date(b.triggered_at) - new Date(a.triggered_at)
   })
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const pageStart = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, total)
 
   if (loading) return (
     <div className="flex h-64 flex-col items-center justify-center gap-3">
@@ -290,12 +395,32 @@ export default function Dashboard() {
               </h2>
               <p className="mt-0.5 text-xs text-hp-dim">每 30 分钟自动更新 · 按热度锁定最值得首发的内容</p>
             </div>
-            <button type="button" onClick={() => load(false)} disabled={refreshing}
+            <button type="button" onClick={() => load(false, currentPage)} disabled={refreshing}
               className="hp-btn-ghost cursor-pointer gap-1.5 text-xs disabled:opacity-50">
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'motion-safe:animate-spin' : ''}`} />
               刷新
             </button>
           </div>
+
+          {liveRefreshCount > 0 && currentPage === 1 && (
+            <div className="hp-live-refresh mb-5 flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-xs font-medium text-cyan-100">
+              <span className="hp-live-refresh-orb" />
+              <span className="min-w-0 flex-1">
+                实时刷新完成，新增 <span className="font-semibold text-white">{liveRefreshCount}</span> 条热点已插入列表
+              </span>
+              <RefreshCw className="h-3.5 w-3.5 text-cyan-200 motion-safe:animate-spin" />
+            </div>
+          )}
+
+          {newAlertCount > 0 && (
+            <button
+              type="button"
+              onClick={() => load(false, 1)}
+              className="hp-live-refresh mb-5 w-full cursor-pointer rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-200 transition-colors hover:bg-cyan-400/15"
+            >
+              发现 {newAlertCount} 条新热点，点击查看最新
+            </button>
+          )}
 
           {/* Sort tabs */}
           <div className="mb-5 flex flex-wrap items-center gap-1.5">
@@ -306,11 +431,11 @@ export default function Dashboard() {
                 {opt.label}
               </button>
             ))}
-            <button type="button" onClick={() => setSortBy('heat')}
+            <button type="button" onClick={() => setSortBy('latest')}
               className="hp-tab ml-auto" title="重置"><RotateCcw className="h-3.5 w-3.5" /></button>
           </div>
 
-          {/* Feed grid — 1 col on mobile, 2 cols on xl+ */}
+          {/* Feed grid — single column for easier scanning */}
           {sorted.length === 0 ? (
             <div className="hp-card p-16 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-white/[0.1] bg-white/[0.02]">
@@ -320,10 +445,39 @@ export default function Dashboard() {
               <p className="mt-1 text-xs text-hp-dim">前往「监控词」页面添加关键词，开启全网扫描</p>
             </div>
           ) : (
-            <div className="grid gap-3 xl:grid-cols-2">
+            <div className="grid gap-3">
               {sorted.map(item => (
-                <HotCard key={`${item._type}-${item.id}`} item={item} />
+                <HotCard key={`${item._type}-${item.id}`} item={item} isFresh={freshAlertIds.has(item.id)} />
               ))}
+            </div>
+          )}
+
+          {total > PAGE_SIZE && (
+            <div className="mt-5 flex flex-col gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-xs text-hp-dim sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                显示 {pageStart}-{pageEnd} 条，共 <span className="font-semibold text-white">{total}</span> 条热点
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={refreshing || currentPage <= 1}
+                  className="hp-btn-ghost cursor-pointer px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  上一页
+                </button>
+                <span className="min-w-16 text-center font-mono text-[11px] text-hp-muted">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={refreshing || currentPage >= totalPages}
+                  className="hp-btn-ghost cursor-pointer px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  下一页
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -333,7 +487,7 @@ export default function Dashboard() {
       <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-hp-surface/60 px-4 py-3 text-xs text-hp-dim backdrop-blur-sm">
         <Zap className="h-3.5 w-3.5 flex-shrink-0 text-cyan-400/60" />
         <span>下次扫描约 30 分钟后 · {kwCount} 个监控词在线</span>
-        <span className="ml-auto font-mono text-[11px] text-hp-dim/60">{sorted.length} 条</span>
+        <span className="ml-auto font-mono text-[11px] text-hp-dim/60">{pageStart}-{pageEnd} / {total}</span>
       </div>
     </div>
   )

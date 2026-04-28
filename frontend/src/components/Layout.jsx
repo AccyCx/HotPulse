@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useBrowserNotification } from '../hooks/useNotification'
-import { alertsApi } from '../lib/api'
+import { alertsApi, keywordsApi } from '../lib/api'
 import NotificationToast from './NotificationToast'
 import NotificationPanel from './NotificationPanel'
 import GridBackground from './aceternity/GridBackground'
@@ -22,7 +22,7 @@ export default function Layout({ children }) {
   const [toasts, setToasts] = useState([])
   const [alertsList, setAlertsList] = useState([])
   const [panelOpen, setPanelOpen] = useState(false)
-  const [keywordScanning, setKeywordScanning] = useState(false)
+  const [activeScanIds, setActiveScanIds] = useState(() => new Set())
   const [popupEnabled, setPopupEnabled] = useState(() => {
     const saved = localStorage.getItem('hp-system-notify-enabled')
     return saved == null ? true : saved === 'true'
@@ -42,9 +42,12 @@ export default function Layout({ children }) {
   }, [])
 
   useEffect(() => {
-    const h = e => setKeywordScanning(e.detail.active)
-    window.addEventListener('hp:keyword-scanning', h)
-    return () => window.removeEventListener('hp:keyword-scanning', h)
+    keywordsApi.getScanStatus()
+      .then(result => {
+        const ids = (result.active || []).map(scan => scan.keyword_id)
+        setActiveScanIds(new Set(ids))
+      })
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -52,14 +55,36 @@ export default function Layout({ children }) {
   }, [popupEnabled])
 
   const handleMessage = useCallback(msg => {
+    if (msg.type === 'scan_started') {
+      const id = msg.data?.keyword_id
+      if (id != null) setActiveScanIds(prev => new Set(prev).add(id))
+      window.dispatchEvent(new CustomEvent('hp:keyword-scan-status', { detail: { ...msg.data, active: true } }))
+      return
+    }
+
+    if (msg.type === 'scan_finished') {
+      const id = msg.data?.keyword_id
+      if (id != null) {
+        setActiveScanIds(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }
+      window.dispatchEvent(new CustomEvent('hp:keyword-scan-status', { detail: { ...msg.data, active: false } }))
+      return
+    }
+
     if (msg.type !== 'alert') return
     const a = msg.data
+    window.dispatchEvent(new CustomEvent('hp:new-alert', { detail: a }))
     const key = a.id ?? `${a.keyword}:${a.url || a.title}`
     if (seenAlertKeysRef.current.has(key)) return
     seenAlertKeysRef.current.add(key)
     setAlertsList(prev => [{ ...a, receivedAt: new Date().toISOString() }, ...prev].slice(0, 50))
-    setToasts(p => [{ id: Date.now(), type: 'alert', title: `新预警 · ${a.keyword}`, body: a.title, url: a.url }, ...p].slice(0, 4))
-    if (popupEnabled) notify(`HotPulse: ${a.keyword}`, a.title, a.url)
+    if (popupEnabled) {
+      setToasts(p => [{ id: Date.now(), type: 'alert', title: `新预警 · ${a.keyword}`, body: a.title, url: a.url }, ...p].slice(0, 4))
+    }
   }, [notify, popupEnabled])
 
   const { connected } = useWebSocket(handleMessage)
@@ -71,10 +96,12 @@ export default function Layout({ children }) {
     setAlertsList([])
     seenAlertKeysRef.current.clear()
     setPanelOpen(false)
-    try { await alertsApi.clearAll() } catch {}
+    // Only mark as read (hide from the bell/unread panel). Do NOT delete alerts globally.
+    try { await alertsApi.markAllRead() } catch {}
   }, [])
 
   const unreadCount = alertsList.length
+  const keywordScanning = activeScanIds.size > 0
 
   return (
     <div className="relative min-h-screen text-hp-text" style={{ backgroundColor: '#09090b' }}>

@@ -37,22 +37,38 @@ function getPlatformLabel(source) {
 function AlertCard({ a }) {
   const score = Math.round(((a.relevance_score || 0) * 10) * 10) / 10
   const platColor = getPlatformColor(a.source)
+  const needsReview = a.review_status === 'needs_review'
+  const pop = a.popularity_score
 
   return (
     <div className="hp-card animate-fade-in flex flex-col gap-3 p-4 transition-all duration-200">
       {/* Top row */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="hp-platform">
-          <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: platColor }} />
-          {getPlatformLabel(a.source)}
-        </span>
-        {a.keyword && <span className="hp-keyword">{a.keyword}</span>}
-        {!a.is_read && (
-          <span className="rounded-full border border-cyan-400/22 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-300">
-            NEW
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="hp-platform flex-shrink-0">
+            <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: platColor }} />
+            {getPlatformLabel(a.source)}
           </span>
-        )}
-        <div className="ml-auto flex items-center gap-1.5">
+          {a.keyword && (
+            <span className="hp-keyword max-w-[140px] truncate">{a.keyword}</span>
+          )}
+          {!a.is_read && (
+            <span className="flex-shrink-0 rounded-full border border-cyan-400/22 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-300">
+              NEW
+            </span>
+          )}
+          {needsReview && (
+            <span className="flex-shrink-0 rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+              待确认
+            </span>
+          )}
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          {pop !== undefined && pop !== null && (
+            <span className="rounded-full border border-white/[0.10] bg-white/[0.06] px-2 py-0.5 text-[11px] font-medium text-zinc-200">
+              热 {Math.round(Number(pop) * 100)}
+            </span>
+          )}
           {score >= 7 && (
             <span className="flex items-center gap-1 rounded-full border border-orange-400/20 bg-orange-400/10 px-2 py-0.5 text-[11px] font-medium text-orange-300">
               <Flame className="h-3 w-3" />
@@ -254,7 +270,7 @@ export default function SearchPage() {
             <SlidersHorizontal className="h-3.5 w-3.5" />
             找到 <span className="font-semibold text-white">{total}</span> 条，显示前 {items.length} 条
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3">
             {items.map(a => <AlertCard key={a.id} a={a} />)}
           </div>
         </>

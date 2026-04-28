@@ -222,6 +222,71 @@
     0%, 100% { opacity: 0.5; }
     50% { opacity: 1; }
   }
+
+  /* ── Live refresh feedback ── */
+  .hp-live-refresh {
+    position: relative;
+    overflow: hidden;
+    animation: hpLiveRefreshIn 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 24px rgba(34,211,238,0.08);
+  }
+  .hp-live-refresh::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.16) 45%, transparent 70%);
+    transform: translateX(-120%);
+    animation: hpRefreshSweep 1.15s ease-out 0.08s both;
+  }
+  .hp-live-refresh-orb {
+    @apply h-2.5 w-2.5 flex-shrink-0 rounded-full;
+    background: #22d3ee;
+    box-shadow: 0 0 0 0 rgba(34,211,238,0.48), 0 0 14px rgba(34,211,238,0.75);
+    animation: hpOrbPing 1.3s ease-out infinite;
+  }
+  .hp-card-new-alert {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(34,211,238,0.44) !important;
+    animation: hpNewAlertCard 4.8s ease-out both;
+  }
+  .hp-card-new-alert::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(34,211,238,0.18), transparent 34%),
+      linear-gradient(110deg, transparent 0%, rgba(34,211,238,0.13) 42%, transparent 68%);
+    transform: translateX(-105%);
+    animation: hpCardSweep 1.4s ease-out 0.12s both;
+  }
+  @keyframes hpLiveRefreshIn {
+    from { transform: translateY(-8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes hpRefreshSweep {
+    to { transform: translateX(120%); }
+  }
+  @keyframes hpOrbPing {
+    0% { box-shadow: 0 0 0 0 rgba(34,211,238,0.48), 0 0 14px rgba(34,211,238,0.75); }
+    70%, 100% { box-shadow: 0 0 0 9px rgba(34,211,238,0), 0 0 14px rgba(34,211,238,0.75); }
+  }
+  @keyframes hpNewAlertCard {
+    0% {
+      transform: translateY(-6px);
+      box-shadow: 0 0 0 1px rgba(34,211,238,0.35), 0 0 30px rgba(34,211,238,0.18), 0 10px 30px rgba(0,0,0,0.42);
+    }
+    18% { transform: translateY(0); }
+    100% {
+      transform: translateY(0);
+      box-shadow: 0 0 0 1px rgba(34,211,238,0.07), 0 6px 20px rgba(0,0,0,0.35);
+    }
+  }
+  @keyframes hpCardSweep {
+    to { transform: translateX(105%); }
+  }
 }
 
 /* ── Scrollbar ── */

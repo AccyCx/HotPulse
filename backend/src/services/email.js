@@ -10,15 +10,42 @@ function getEmailSettings() {
 }
 
 function createTransporter(cfg) {
+  const port = parseInt(cfg.smtp_port) || 465
   return nodemailer.createTransport({
-    host: cfg.smtp_host || 'smtp.gmail.com',
-    port: parseInt(cfg.smtp_port) || 587,
-    secure: parseInt(cfg.smtp_port) === 465,
+    host: cfg.smtp_host || 'smtp.qq.com',
+    port,
+    secure: port === 465,
     auth: {
       user: cfg.smtp_user,
       pass: cfg.smtp_pass,
     },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
+    tls: {
+      servername: cfg.smtp_host || 'smtp.qq.com',
+    },
   })
+}
+
+function explainEmailError(err) {
+  const msg = err?.message || String(err)
+  if (/535|Login fail|Account is abnormal|service is not open|password is incorrect|login frequency limited/i.test(msg)) {
+    return [
+      'QQ 邮箱登录失败：请确认已在 QQ 邮箱设置中开启「POP3/SMTP 服务」，SMTP_PASS 填写的是「授权码」而不是 QQ 登录密码。',
+      '推荐配置：SMTP_HOST=smtp.qq.com，SMTP_PORT=465，SMTP_USER=你的QQ邮箱，SMTP_PASS=QQ邮箱生成的SMTP授权码。',
+      '如果刚多次测试失败，可能触发频率限制，请等待几分钟后重试。',
+      `原始错误：${msg}`,
+    ].join(' ')
+  }
+  if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|Connection closed|Greeting never received/i.test(msg)) {
+    return [
+      'SMTP 连接失败：请确认 SMTP_HOST/SMTP_PORT 正确且本机网络允许连接邮箱服务器。',
+      'QQ 邮箱推荐 SMTP_HOST=smtp.qq.com，SMTP_PORT=465。',
+      `原始错误：${msg}`,
+    ].join(' ')
+  }
+  return msg
 }
 
 export async function sendAlertEmail(alert) {
@@ -104,7 +131,13 @@ export async function sendTopicDigestEmail(domain, topics) {
 export async function testEmailConfig() {
   const cfg = getEmailSettings()
   if (!cfg.smtp_user) throw new Error('SMTP 未配置')
+  if (!cfg.smtp_pass || cfg.smtp_pass === '••••••••') throw new Error('SMTP 授权码未配置')
+  if (!cfg.notify_email) throw new Error('通知接收邮箱未配置')
   const transporter = createTransporter(cfg)
-  await transporter.verify()
+  try {
+    await transporter.verify()
+  } catch (err) {
+    throw new Error(explainEmailError(err))
+  }
   return { success: true, message: '邮件配置验证通过' }
 }

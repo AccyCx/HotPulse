@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import db from '../db/index.js'
-import { runMonitorCycle, processKeyword } from '../services/monitor.js'
+import { runMonitorCycle, processKeyword, getActiveScans } from '../services/monitor.js'
 
 const router = Router()
 
@@ -13,11 +13,43 @@ router.get('/', (req, res) => {
   res.json(keywords)
 })
 
+router.get('/scan-status', (req, res) => {
+  res.json({ active: getActiveScans() })
+})
+
 router.post('/', (req, res) => {
   const { keyword } = req.body
   if (!keyword?.trim()) return res.status(400).json({ error: '关键词不能为空' })
   try {
-    const id = db.prepare('INSERT INTO keywords (keyword) VALUES (?)').run(keyword.trim()).lastInsertRowid
+    const normalized = keyword.trim()
+
+    // If keyword exists but was soft-deleted, restore it instead of failing UNIQUE.
+    const existing = db.prepare('SELECT * FROM keywords WHERE keyword = ?').get(normalized)
+    if (existing) {
+      if (!existing.deleted_at) return res.status(409).json({ error: '关键词已存在' })
+
+      db.prepare(`
+        UPDATE keywords
+        SET enabled = 1,
+            deleted_at = NULL,
+            created_at = datetime('now')
+        WHERE id = ?
+      `).run(existing.id)
+
+      // Restored keyword: keep history and cancel expiry
+      db.prepare(`UPDATE alerts SET expires_at = NULL WHERE keyword_id = ?`).run(existing.id)
+
+      const kw = db.prepare('SELECT * FROM keywords WHERE id = ?').get(existing.id)
+      res.status(200).json(kw)
+
+      // Scan on restore as well (non-blocking)
+      processKeyword(kw, { maxAlerts: 5 }).catch(err =>
+        console.error(`[Monitor] Initial scan error for "${kw.keyword}":`, err.message)
+      )
+      return
+    }
+
+    const id = db.prepare('INSERT INTO keywords (keyword) VALUES (?)').run(normalized).lastInsertRowid
     const kw = db.prepare('SELECT * FROM keywords WHERE id = ?').get(id)
     res.status(201).json(kw)
     // Immediately scan for this new keyword without blocking the response.

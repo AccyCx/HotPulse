@@ -9,6 +9,7 @@ api.interceptors.response.use(
 
 export const keywordsApi = {
   getAll: () => api.get('/keywords'),
+  getScanStatus: () => api.get('/keywords/scan-status'),
   add: keyword => api.post('/keywords', { keyword }),
   toggle: (id, enabled) => api.patch(`/keywords/${id}`, { enabled }),
   remove: id => api.delete(`/keywords/${id}`),
@@ -21,7 +22,8 @@ export const alertsApi = {
   getStats: () => api.get('/alerts/stats'),
   markRead: id => api.patch(`/alerts/${id}/read`),
   markAllRead: () => api.post('/alerts/read-all'),
-  clearAll: () => api.delete('/alerts'),
+  // Legacy alias (previously deleted alerts, which was unintended).
+  clearAll: () => api.post('/alerts/read-all'),
 }
 
 export const searchApi = {

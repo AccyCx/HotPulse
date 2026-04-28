@@ -120,7 +120,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [show, setShow] = useState({ openrouter: false, twitter: false, smtp: false })
+  const [show, setShow] = useState({ dashscope: false, twitter: false, smtp: false })
 
   useEffect(() => {
     settingsApi.get().then(d => { setForm(d); setLoading(false) }).catch(console.error)
@@ -181,23 +181,31 @@ export default function Settings() {
               description="驱动内容分析与摘要生成"
               accent="#818cf8"
             >
-              <Field label="OpenRouter API Key" hint="访问 openrouter.ai 注册，有免费额度">
+              <Field label="阿里云百炼 API Key" hint="在阿里云百炼控制台创建 API Key，对应环境变量 DASHSCOPE_API_KEY">
                 <PwInput
-                  value={form.openrouter_api_key || ''}
-                  placeholder="sk-or-..."
-                  onChange={e => set('openrouter_api_key', e.target.value)}
-                  show={show.openrouter}
-                  onToggleShow={() => toggleShow('openrouter')}
+                  value={form.dashscope_api_key || ''}
+                  placeholder="sk-..."
+                  onChange={e => set('dashscope_api_key', e.target.value)}
+                  show={show.dashscope}
+                  onToggleShow={() => toggleShow('dashscope')}
                 />
               </Field>
               <Field label="模型选择">
-                <select className="hp-input" value={form.openrouter_model || 'google/gemini-flash-1.5'}
-                  onChange={e => set('openrouter_model', e.target.value)}>
-                  <option value="google/gemini-flash-1.5">google/gemini-flash-1.5（推荐）</option>
-                  <option value="openai/gpt-4o-mini">openai/gpt-4o-mini</option>
-                  <option value="anthropic/claude-3-haiku">anthropic/claude-3-haiku</option>
-                  <option value="google/gemini-2.0-flash-001">google/gemini-2.0-flash-001</option>
+                <select className="hp-input" value={form.dashscope_model || 'qwen-plus'}
+                  onChange={e => set('dashscope_model', e.target.value)}>
+                  <option value="qwen-plus">qwen-plus（通义千问 Plus，推荐）</option>
+                  <option value="qwen-turbo">qwen-turbo（速度快、成本低）</option>
+                  <option value="qwen-max">qwen-max（能力更强）</option>
+                  <option value="qwen-long">qwen-long（长上下文）</option>
                 </select>
+              </Field>
+              <Field label="百炼兼容接口地址" hint="中国内地默认北京地域；海外/香港地域可按百炼文档替换">
+                <input
+                  className="hp-input"
+                  placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"
+                  value={form.dashscope_base_url || 'https://dashscope.aliyuncs.com/compatible-mode/v1'}
+                  onChange={e => set('dashscope_base_url', e.target.value)}
+                />
               </Field>
               <TestBtn label="测试 AI 连接" onTest={settingsApi.testAI} accent="#818cf8" />
             </Section>
@@ -211,19 +219,19 @@ export default function Settings() {
             accent="#34d399"
           >
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="SMTP 服务器" hint="如 smtp.gmail.com">
-                <input className="hp-input" placeholder="smtp.gmail.com"
+              <Field label="SMTP 服务器" hint="QQ 邮箱请填写 smtp.qq.com">
+                <input className="hp-input" placeholder="smtp.qq.com"
                   value={form.smtp_host || ''} onChange={e => set('smtp_host', e.target.value)} />
               </Field>
-              <Field label="SMTP 端口">
-                <input className="hp-input" placeholder="587" type="number"
+              <Field label="SMTP 端口" hint="QQ 邮箱推荐 465（SSL）">
+                <input className="hp-input" placeholder="465" type="number"
                   value={form.smtp_port || ''} onChange={e => set('smtp_port', e.target.value)} />
               </Field>
               <Field label="发件人邮箱">
-                <input className="hp-input" placeholder="you@gmail.com" type="email"
+                <input className="hp-input" placeholder="your@qq.com" type="email"
                   value={form.smtp_user || ''} onChange={e => set('smtp_user', e.target.value)} />
               </Field>
-              <Field label="应用密码" hint="Gmail 需使用应用专用密码">
+              <Field label="SMTP 授权码" hint="QQ 邮箱需在设置中开启 POP3/SMTP，并填写生成的授权码（不是QQ登录密码）">
                 <PwInput
                   value={form.smtp_pass || ''}
                   placeholder="••••••••"
@@ -272,10 +280,46 @@ export default function Settings() {
             <div className="space-y-2">
               <SourceToggle label="Twitter / X（twitterapi.io）" settingKey="sources_twitter"     value={form.sources_twitter}     onChange={set} />
               <SourceToggle label="Google 新闻 RSS"              settingKey="sources_googlenews"  value={form.sources_googlenews}  onChange={set} />
+              <SourceToggle label="Bing 新闻 RSS"                settingKey="sources_bingnews"    value={form.sources_bingnews}    onChange={set} />
+              <SourceToggle label="DuckDuckGo 搜索"              settingKey="sources_duckduckgo"  value={form.sources_duckduckgo}  onChange={set} />
               <SourceToggle label="Hacker News"                  settingKey="sources_hackernews"  value={form.sources_hackernews}  onChange={set} />
               <SourceToggle label="Reddit"                       settingKey="sources_reddit"      value={form.sources_reddit}      onChange={set} />
               <SourceToggle label="GitHub Trending"              settingKey="sources_github"      value={form.sources_github}      onChange={set} />
               <SourceToggle label="arXiv 论文"                   settingKey="sources_arxiv"       value={form.sources_arxiv}       onChange={set} />
+              <SourceToggle label="技术博客 RSS"                 settingKey="sources_rss"         value={form.sources_rss}         onChange={set} />
+            </div>
+          </Section>
+
+          {/* Filter thresholds */}
+          <Section
+            icon={Shield}
+            title="过滤阈值"
+            description="用互动与 AI 置信度过滤噪声（AI 不可用时将记录为待确认，不通知）"
+            accent="#fb7185"
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="最小热门度（0-1）" hint="越高越严格，建议 0.10 ~ 0.25">
+                <input
+                  className="hp-input"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={form.min_popularity ?? '0.15'}
+                  onChange={e => set('min_popularity', e.target.value)}
+                />
+              </Field>
+              <Field label="AI 置信度阈值（0-1）" hint="AI 可用时小于该值不会触发通知，建议 0.55 ~ 0.75">
+                <input
+                  className="hp-input"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={form.min_ai_confidence ?? '0.6'}
+                  onChange={e => set('min_ai_confidence', e.target.value)}
+                />
+              </Field>
             </div>
           </Section>
 

@@ -19,6 +19,12 @@ export async function searchReddit(query, limit = 10) {
         url: p.url || `https://reddit.com${p.permalink}`,
         source: 'reddit',
         score: p.score || 0,
+        metrics: {
+          score: p.score || 0,
+          comments: p.num_comments || 0,
+          upvote_ratio: p.upvote_ratio ?? null,
+          subreddit: p.subreddit || null,
+        },
       }
     })
   } catch (err) {
@@ -41,8 +47,14 @@ export async function getSubredditHot(subreddit, limit = 15) {
         title: p.title,
         summary: p.selftext ? p.selftext.slice(0, 200) : '',
         url: p.url || `https://reddit.com${p.permalink}`,
-        source: `reddit/r/${subreddit}`,
+        source: `reddit/hot/r/${subreddit}`,
         score: p.score || 0,
+        metrics: {
+          score: p.score || 0,
+          comments: p.num_comments || 0,
+          upvote_ratio: p.upvote_ratio ?? null,
+          subreddit,
+        },
       }
     })
   } catch (err) {

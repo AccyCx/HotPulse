@@ -35,6 +35,12 @@ export async function searchTwitter(query, limit = 20) {
       url: tweet.url || `https://x.com/i/web/status/${tweet.id}`,
       source: 'twitter',
       score: (tweet.public_metrics?.like_count || 0) + (tweet.public_metrics?.retweet_count || 0) * 3,
+      metrics: {
+        likes: tweet.public_metrics?.like_count || 0,
+        retweets: tweet.public_metrics?.retweet_count || 0,
+        replies: tweet.public_metrics?.reply_count || 0,
+        quotes: tweet.public_metrics?.quote_count || 0,
+      },
       author: tweet.author?.username || tweet.user?.screen_name || '',
     }))
   } catch (err) {
@@ -65,6 +71,12 @@ export async function getTwitterTrending(query, limit = 15) {
       url: tweet.url || `https://x.com/i/web/status/${tweet.id}`,
       source: 'twitter',
       score: (tweet.public_metrics?.like_count || 0) + (tweet.public_metrics?.retweet_count || 0) * 3,
+      metrics: {
+        likes: tweet.public_metrics?.like_count || 0,
+        retweets: tweet.public_metrics?.retweet_count || 0,
+        replies: tweet.public_metrics?.reply_count || 0,
+        quotes: tweet.public_metrics?.quote_count || 0,
+      },
     }))
   } catch (err) {
     console.error('[Twitter] trending error:', err.message)
