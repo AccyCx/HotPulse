@@ -21,6 +21,11 @@ function getPlatformColor(source) {
   if (s.includes('github')) return '#e4e4e7'
   if (s.includes('hackernews') || s.includes('hn')) return '#f97316'
   if (s.includes('arxiv')) return '#f87171'
+  if (s.includes('baidu')) return '#60a5fa'
+  if (s.includes('zhihu')) return '#38bdf8'
+  if (s.includes('weibo')) return '#fb7185'
+  if (s.includes('bilibili')) return '#fb7299'
+  if (s.includes('sogou_weixin')) return '#22c55e'
   return '#a1a1aa'
 }
 
@@ -31,6 +36,16 @@ function getPlatformLabel(source) {
   if (s.includes('github')) return 'GitHub'
   if (s.includes('hackernews') || s.includes('hn')) return 'HN'
   if (s.includes('arxiv')) return 'arXiv'
+  if (s.includes('baidunews')) return '百度新闻'
+  if (s.includes('baidu')) return '百度'
+  if (s.includes('zhihu_account')) return '知乎账号'
+  if (s.includes('zhihu')) return '知乎'
+  if (s.includes('weibo_account')) return '微博账号'
+  if (s.includes('weibo')) return '微博'
+  if (s.includes('bilibili_account')) return 'B站账号'
+  if (s.includes('bilibili')) return 'B站'
+  if (s.includes('sogou_weixin_account')) return '公众号'
+  if (s.includes('sogou_weixin')) return '微信'
   return source?.slice(0, 12) || 'Web'
 }
 

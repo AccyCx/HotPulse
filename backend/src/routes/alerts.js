@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import db from '../db/index.js'
+import { runCleanupNow } from '../services/cleanup.js'
 
 const router = Router()
 
@@ -44,6 +45,11 @@ router.patch('/:id/read', (req, res) => {
 router.post('/read-all', (req, res) => {
   db.prepare('UPDATE alerts SET is_read = 1').run()
   res.json({ success: true })
+})
+
+router.post('/cleanup', (req, res) => {
+  const result = runCleanupNow({ retentionDays: req.body?.retention_days ?? 5 })
+  res.json({ success: true, ...result })
 })
 
 // Legacy endpoint: previously deleted alerts (bug). Keep for compatibility,

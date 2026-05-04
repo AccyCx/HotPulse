@@ -3,6 +3,7 @@ import {
   TrendingUp, Tag, Bell, RefreshCw, ExternalLink,
   ChevronDown, ChevronUp, Clock, Zap, AlertTriangle,
   SlidersHorizontal, Radio, RotateCcw, Flame, Activity,
+  Trash2,
 } from 'lucide-react'
 import { alertsApi, keywordsApi } from '../lib/api'
 import AuroraBackground from '../components/aceternity/AuroraBackground'
@@ -35,6 +36,12 @@ function getPlatform(source) {
   if (s.includes('arxiv')) return { label: 'arXiv', color: '#f87171' }
   if (s.includes('weibo')) return { label: '微博', color: '#fb7185' }
   if (s.includes('zhihu')) return { label: '知乎', color: '#38bdf8' }
+  if (s.includes('baidunews')) return { label: '百度新闻', color: '#60a5fa' }
+  if (s.includes('baidu')) return { label: '百度', color: '#60a5fa' }
+  if (s.includes('bilibili_account')) return { label: 'B站账号', color: '#fb7299' }
+  if (s.includes('bilibili')) return { label: 'B站', color: '#fb7299' }
+  if (s.includes('sogou_weixin_account')) return { label: '公众号', color: '#22c55e' }
+  if (s.includes('sogou_weixin')) return { label: '微信', color: '#22c55e' }
   return { label: source?.slice(0, 10) || 'Web', color: '#a1a1aa' }
 }
 function getPriority(score) {
@@ -191,6 +198,8 @@ export default function Dashboard() {
   const [total, setTotal] = useState(0)
   const [newAlertCount, setNewAlertCount] = useState(0)
   const [liveRefreshCount, setLiveRefreshCount] = useState(0)
+  const [cleaning, setCleaning] = useState(false)
+  const [cleanupResult, setCleanupResult] = useState(null)
   const [freshAlertIds, setFreshAlertIds] = useState(() => new Set())
   const freshTimersRef = useRef(new Map())
   const liveRefreshTimerRef = useRef(null)
@@ -226,6 +235,22 @@ export default function Dashboard() {
     scrollToPageTop()
     await load(false, page)
     requestAnimationFrame(scrollToPageTop)
+  }
+
+  async function handleCleanup() {
+    if (cleaning) return
+    if (!confirm('确认清理 5 天前的历史热点？该操作会删除过期热点及其通知记录。')) return
+    setCleaning(true)
+    setCleanupResult(null)
+    try {
+      const result = await alertsApi.cleanupExpired(5)
+      setCleanupResult(result)
+      await load(false, 1)
+    } catch (e) {
+      setCleanupResult({ error: String(e) })
+    } finally {
+      setCleaning(false)
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -395,12 +420,31 @@ export default function Dashboard() {
               </h2>
               <p className="mt-0.5 text-xs text-hp-dim">每 30 分钟自动更新 · 按热度锁定最值得首发的内容</p>
             </div>
-            <button type="button" onClick={() => load(false, currentPage)} disabled={refreshing}
-              className="hp-btn-ghost cursor-pointer gap-1.5 text-xs disabled:opacity-50">
-              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'motion-safe:animate-spin' : ''}`} />
-              刷新
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={handleCleanup} disabled={cleaning}
+                className="hp-btn-ghost cursor-pointer gap-1.5 text-xs text-red-300 disabled:opacity-50">
+                <Trash2 className={`h-3.5 w-3.5 ${cleaning ? 'motion-safe:animate-pulse' : ''}`} />
+                清理 5 天前热点
+              </button>
+              <button type="button" onClick={() => load(false, currentPage)} disabled={refreshing}
+                className="hp-btn-ghost cursor-pointer gap-1.5 text-xs disabled:opacity-50">
+                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'motion-safe:animate-spin' : ''}`} />
+                刷新
+              </button>
+            </div>
           </div>
+
+          {cleanupResult && (
+            <div className={`mb-5 rounded-xl border px-4 py-3 text-xs ${
+              cleanupResult.error
+                ? 'border-red-400/20 bg-red-400/10 text-red-200'
+                : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
+            }`}>
+              {cleanupResult.error
+                ? `清理失败：${cleanupResult.error}`
+                : `已清理 ${cleanupResult.deleted_alerts || 0} 条过期热点，通知记录 ${cleanupResult.deleted_notifications || 0} 条。`}
+            </div>
+          )}
 
           {liveRefreshCount > 0 && currentPage === 1 && (
             <div className="hp-live-refresh mb-5 flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-xs font-medium text-cyan-100">

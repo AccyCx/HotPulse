@@ -22,12 +22,14 @@ export const alertsApi = {
   getStats: () => api.get('/alerts/stats'),
   markRead: id => api.patch(`/alerts/${id}/read`),
   markAllRead: () => api.post('/alerts/read-all'),
+  cleanupExpired: (retentionDays = 5) => api.post('/alerts/cleanup', { retention_days: retentionDays }),
   // Legacy alias (previously deleted alerts, which was unintended).
   clearAll: () => api.post('/alerts/read-all'),
 }
 
 export const searchApi = {
   searchAlerts: params => api.get('/search/alerts', { params }),
+  fetchLogs: params => api.get('/search/fetch-logs', { params }),
 }
 
 export const settingsApi = {

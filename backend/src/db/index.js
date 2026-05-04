@@ -73,6 +73,19 @@ db.exec(`
     value TEXT,
     updated_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS source_fetch_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    keyword_id INTEGER REFERENCES keywords(id) ON DELETE SET NULL,
+    keyword_text TEXT,
+    source TEXT NOT NULL,
+    status TEXT NOT NULL,
+    item_count INTEGER DEFAULT 0,
+    duration_ms INTEGER DEFAULT 0,
+    error TEXT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT DEFAULT (datetime('now'))
+  );
 `)
 
 // Lightweight "migrations" for existing DBs.
@@ -94,6 +107,9 @@ try { db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_keyword_id ON alerts(keywor
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_triggered_at ON alerts(triggered_at)') } catch {}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_expires_at ON alerts(expires_at)') } catch {}
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_alerts_review_status ON alerts(review_status)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_source_fetch_logs_keyword_id ON source_fetch_logs(keyword_id)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_source_fetch_logs_started_at ON source_fetch_logs(started_at)') } catch {}
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_source_fetch_logs_source ON source_fetch_logs(source)') } catch {}
 
 const DEFAULT_DASHSCOPE_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
 const DEFAULT_DASHSCOPE_MODEL = 'qwen-plus'
@@ -121,6 +137,16 @@ const defaultSettings = {
   sources_arxiv: '1',
   sources_rss: '1',
   sources_duckduckgo: '0',
+  sources_baidu: '1',
+  sources_baidunews: '1',
+  sources_zhihu: '1',
+  sources_zhihu_accounts: '1',
+  sources_weibo: '1',
+  sources_weibo_accounts: '1',
+  sources_bilibili: '1',
+  sources_bilibili_accounts: '1',
+  sources_sogou_weixin: '1',
+  sources_sogou_weixin_accounts: '1',
   min_ai_confidence: '0.6',
   min_popularity: '0.15',
 }

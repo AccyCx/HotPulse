@@ -8,7 +8,7 @@ export async function searchHackerNews(query, limit = 10) {
         query,
         tags: 'story',
         hitsPerPage: limit,
-        numericFilters: `created_at_i>${Math.floor(Date.now() / 1000) - 86400 * 7}`,
+        numericFilters: `created_at_i>${Math.floor(Date.now() / 1000) - 86400}`,
       },
       timeout: 10000,
     })
@@ -17,6 +17,7 @@ export async function searchHackerNews(query, limit = 10) {
       summary: hit.story_text ? hit.story_text.replace(/<[^>]+>/g, '').slice(0, 200) : '',
       url: hit.url || `https://news.ycombinator.com/item?id=${hit.objectID}`,
       source: 'hackernews',
+      publishedAt: hit.created_at || '',
       score: hit.points || 0,
       metrics: {
         points: hit.points || 0,
@@ -51,6 +52,7 @@ export async function getHNTopStories(limit = 20) {
         summary: '',
         url: s.url,
         source: 'hackernews/top',
+        publishedAt: s.time ? new Date(s.time * 1000).toISOString() : '',
         score: s.score || 0,
         metrics: {
           points: s.score || 0,

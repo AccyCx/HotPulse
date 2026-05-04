@@ -282,6 +282,16 @@ export default function Settings() {
               <SourceToggle label="Google 新闻 RSS"              settingKey="sources_googlenews"  value={form.sources_googlenews}  onChange={set} />
               <SourceToggle label="Bing 新闻 RSS"                settingKey="sources_bingnews"    value={form.sources_bingnews}    onChange={set} />
               <SourceToggle label="DuckDuckGo 搜索"              settingKey="sources_duckduckgo"  value={form.sources_duckduckgo}  onChange={set} />
+              <SourceToggle label="百度搜索"                     settingKey="sources_baidu"       value={form.sources_baidu}       onChange={set} />
+              <SourceToggle label="百度新闻"                     settingKey="sources_baidunews"   value={form.sources_baidunews}   onChange={set} />
+              <SourceToggle label="知乎内容搜索"                 settingKey="sources_zhihu"       value={form.sources_zhihu}       onChange={set} />
+              <SourceToggle label="知乎账号直搜"                 settingKey="sources_zhihu_accounts" value={form.sources_zhihu_accounts} onChange={set} />
+              <SourceToggle label="微博内容搜索"                 settingKey="sources_weibo"       value={form.sources_weibo}       onChange={set} />
+              <SourceToggle label="微博账号直搜"                 settingKey="sources_weibo_accounts" value={form.sources_weibo_accounts} onChange={set} />
+              <SourceToggle label="B站视频搜索"                  settingKey="sources_bilibili"    value={form.sources_bilibili}    onChange={set} />
+              <SourceToggle label="B站账号直搜"                  settingKey="sources_bilibili_accounts" value={form.sources_bilibili_accounts} onChange={set} />
+              <SourceToggle label="搜狗微信文章"                 settingKey="sources_sogou_weixin" value={form.sources_sogou_weixin} onChange={set} />
+              <SourceToggle label="微信公众号直搜"               settingKey="sources_sogou_weixin_accounts" value={form.sources_sogou_weixin_accounts} onChange={set} />
               <SourceToggle label="Hacker News"                  settingKey="sources_hackernews"  value={form.sources_hackernews}  onChange={set} />
               <SourceToggle label="Reddit"                       settingKey="sources_reddit"      value={form.sources_reddit}      onChange={set} />
               <SourceToggle label="GitHub Trending"              settingKey="sources_github"      value={form.sources_github}      onChange={set} />

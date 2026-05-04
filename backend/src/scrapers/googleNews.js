@@ -11,7 +11,7 @@ const parser = new Parser({
 export async function searchGoogleNews(query, limit = 15) {
   await rateLimit('google-news', 30000)
   try {
-    const encodedQuery = encodeURIComponent(query)
+    const encodedQuery = encodeURIComponent(`${query} when:1d`)
     const url = `https://news.google.com/rss/search?q=${encodedQuery}&hl=zh-CN&gl=CN&ceid=CN:zh-Hans`
     const feed = await parser.parseURL(url)
     return (feed.items || []).slice(0, limit).map(item => ({

@@ -158,7 +158,7 @@ export async function batchValidateAndSelect(keyword, candidates, targetCount = 
   const actual = Math.min(targetCount, batch.length)
 
   const itemsText = batch
-    .map((item, i) => `[${i + 1}] 标题: ${item.title}\n    摘要: ${(item.summary || '').slice(0, 120)}`)
+    .map((item, i) => `[${i + 1}] 来源: ${item.source || 'unknown'}${item.publishedAt ? `\n    发布时间: ${item.publishedAt}` : ''}\n    标题: ${item.title}\n    摘要: ${(item.summary || '').slice(0, 120)}`)
     .join('\n\n')
 
   const prompt = `你是内容相关性评估专家。从以下${MAX_BATCH}条内容中，筛选出与关键词"${keyword}"最相关的内容（最多${actual}条）。
@@ -167,8 +167,9 @@ ${itemsText}
 
 筛选标准：
 1. 内容确实涉及或讨论"${keyword}"相关话题
-2. 优先选择信息量丰富、有实质价值的内容
-3. 排除广告、明显无关或与关键词完全不相关的内容
+2. 优先选择最近 24 小时内的新动态、权威媒体报道、官方公告、头部账号或核心从业者讨论
+3. 优先选择有传播量、讨论量或明确新闻价值的内容
+4. 排除普通个人吐槽、低互动评论、无名账号帖子、广告、明显无关、过时汇总页或与关键词完全不相关的内容
 
 返回JSON数组（按相关度从高到低排序，最多${actual}条，index为1-based序号）：
 [{"index":1,"confidence":0.9,"reason":"直接报道相关最新动态"}]`

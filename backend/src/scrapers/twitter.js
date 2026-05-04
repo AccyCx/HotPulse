@@ -6,6 +6,15 @@ function getTwitterKey() {
   return row?.value || ''
 }
 
+function sinceDate(days = 1) {
+  const d = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+  return d.toISOString().slice(0, 10)
+}
+
+function tweetCreatedAt(tweet) {
+  return tweet.createdAt || tweet.created_at || tweet.created_at_datetime || tweet.time || ''
+}
+
 // twitterapi.io REST API
 export async function searchTwitter(query, limit = 20) {
   const apiKey = getTwitterKey()
@@ -17,7 +26,7 @@ export async function searchTwitter(query, limit = 20) {
   try {
     const res = await axios.get('https://api.twitterapi.io/twitter/tweet/advanced_search', {
       params: {
-        query: `${query} -is:retweet lang:zh OR lang:en`,
+        query: `(${query}) since:${sinceDate(1)} -is:retweet (lang:zh OR lang:en)`,
         queryType: 'Latest',
         count: limit,
       },
@@ -34,6 +43,7 @@ export async function searchTwitter(query, limit = 20) {
       summary: tweet.text || '',
       url: tweet.url || `https://x.com/i/web/status/${tweet.id}`,
       source: 'twitter',
+      publishedAt: tweetCreatedAt(tweet),
       score: (tweet.public_metrics?.like_count || 0) + (tweet.public_metrics?.retweet_count || 0) * 3,
       metrics: {
         likes: tweet.public_metrics?.like_count || 0,
@@ -56,7 +66,7 @@ export async function getTwitterTrending(query, limit = 15) {
   try {
     const res = await axios.get('https://api.twitterapi.io/twitter/tweet/advanced_search', {
       params: {
-        query: `${query} min_faves:10 -is:retweet`,
+        query: `(${query}) since:${sinceDate(1)} min_faves:10 -is:retweet`,
         queryType: 'Top',
         count: limit,
       },
@@ -70,6 +80,7 @@ export async function getTwitterTrending(query, limit = 15) {
       summary: tweet.text || '',
       url: tweet.url || `https://x.com/i/web/status/${tweet.id}`,
       source: 'twitter',
+      publishedAt: tweetCreatedAt(tweet),
       score: (tweet.public_metrics?.like_count || 0) + (tweet.public_metrics?.retweet_count || 0) * 3,
       metrics: {
         likes: tweet.public_metrics?.like_count || 0,

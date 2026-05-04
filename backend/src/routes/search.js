@@ -71,5 +71,47 @@ router.get('/alerts', (req, res) => {
   res.json({ total, items, limit, offset })
 })
 
+// GET /api/search/fetch-logs?keyword_id=&source=&status=&limit=&offset=
+router.get('/fetch-logs', (req, res) => {
+  const { keyword_id, source, status } = req.query
+  const limit = clampInt(req.query.limit, { min: 1, max: 300, fallback: 100 })
+  const offset = clampInt(req.query.offset, { min: 0, max: 100_000, fallback: 0 })
+
+  const where = []
+  const params = []
+
+  if (keyword_id) {
+    where.push('l.keyword_id = ?')
+    params.push(Number(keyword_id))
+  }
+  if (source?.trim()) {
+    where.push('LOWER(l.source) LIKE ?')
+    params.push(`%${source.trim().toLowerCase()}%`)
+  }
+  if (status?.trim()) {
+    where.push('l.status = ?')
+    params.push(status.trim())
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
+
+  const total = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM source_fetch_logs l
+    ${whereSql}
+  `).get(...params).count
+
+  const items = db.prepare(`
+    SELECT l.*, COALESCE(k.keyword, l.keyword_text) as keyword
+    FROM source_fetch_logs l
+    LEFT JOIN keywords k ON l.keyword_id = k.id
+    ${whereSql}
+    ORDER BY l.started_at DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset)
+
+  res.json({ total, items, limit, offset })
+})
+
 export default router
 
